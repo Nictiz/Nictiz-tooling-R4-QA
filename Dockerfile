@@ -3,7 +3,8 @@ RUN apt-get update && apt-get -y upgrade
 RUN apt-get -y install wget
 RUN apt-get -y install openjdk-11-jre-headless
 RUN apt-get -y install git
-RUN apt-get -y install python3 python3-yaml
+RUN apt-get -y install python3 python3-yaml python3-requests
+RUN apt-get -y install mitmproxy
 RUN apt-get -y install nodejs npm
 RUN wget https://packages.microsoft.com/config/ubuntu/20.04/packages-microsoft-prod.deb && dpkg -i packages-microsoft-prod.deb && rm packages-microsoft-prod.deb
 RUN apt-get update && apt-get -y install apt-transport-https && apt-get -y install dotnet-sdk-3.1 
@@ -23,6 +24,8 @@ RUN git clone -b action --depth 1 https://github.com/pieter-edelman-nictiz/zib-c
 RUN cd tools/zib-compliance-fhir && npm install && cd /
 
 RUN git clone -b v0.14 --depth 1 https://github.com/pieter-edelman-nictiz/hl7-fhir-validator-action /tools/hl7-fhir-validator-action
+
+COPY test-txserver /tools/test-txserver
 
 RUN apt-get -y install dos2unix
 RUN mkdir /scripts
