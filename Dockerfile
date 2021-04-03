@@ -25,7 +25,7 @@ RUN cd tools/zib-compliance-fhir && npm install && cd /
 
 RUN git clone -b v0.14 --depth 1 https://github.com/pieter-edelman-nictiz/hl7-fhir-validator-action /tools/hl7-fhir-validator-action
 
-COPY test-txserver /tools/test-txserver
+COPY CombinedTX /tools/CombinedTX
 
 RUN apt-get -y install dos2unix
 RUN mkdir /scripts

@@ -9,7 +9,7 @@ exit_code=0
 
 # Start a proxy server to intelligently handle terminology requests
 set -m
-mitmweb --web-host "0.0.0.0" -s /tools/test-txserver/CombinedTX.py -q &
+mitmweb --web-host "0.0.0.0" -s /tools/CombinedTX/CombinedTX.py -q &
 echo "You can spy on the terminology server log at http://localhost:8081"
 
 # The repo is mounted read-only, we make a local copy to src_dir where we can modify things if needed.
