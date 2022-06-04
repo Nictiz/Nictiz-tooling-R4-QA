@@ -1,11 +1,32 @@
 #!/usr/bin/env python3
 
+import aiohttp
+from aiohttp import web
 import argparse
+import asyncio
 import glob
-import yaml
+import mimetypes
 import os
 import subprocess
 import tempfile
+import yaml
+
+class Printer:
+    ''' Class to route and format output to the desired location '''
+
+    def __init__(self):
+        self.socket = None
+    
+    def setSocket(self, socket):
+        ''' Set a web socket to send the output to. '''
+        self.socket = socket
+
+    async def write(self, message):
+        ''' Write out the output to the terminal. If a web socket is set and available for writing, output will be
+            echoed there as well. '''
+        print(message, end = '')
+        if self.socket != None and not self.socket.closed:
+            await self.socket.send_str(message)
 
 class FileCollection(dict):
     def __init__(self, config, changed_only = True):
@@ -58,13 +79,15 @@ class FileCollection(dict):
                             combined.append(file_name)
 
 class StepExecutor:
-    def __init__(self, config, file_collection):
+    def __init__(self, config, file_collection, printer):
         if "steps" in config:
             self.steps = config["steps"]
         else:
             self.steps = []
 
         self.file_collection = file_collection
+        self.printer         = printer
+
         self.debug = False
     
     def getSteps(self):
@@ -73,7 +96,7 @@ class StepExecutor:
     def setDebugging(self, debug):
         self.debug = debug
     
-    def execute(self, *step_names):
+    async def execute(self, *step_names):
         os.environ["debug"] = "1" if self.debug else "0"
         os.environ["changed_only"] = "1" if self.file_collection.changed_only else "0"
         self.file_collection.resolve()
@@ -81,7 +104,7 @@ class StepExecutor:
         for step_name in step_names:
             step = self.steps[step_name]
             
-            print("\033[1;37m+++ " + step_name + "\033[0m")
+            await self.printer.write("\033[1;37m+++ " + step_name + "\033[0m")
             
             files = []
             if "patterns" in step:
@@ -96,47 +119,113 @@ class StepExecutor:
                 return True
                     
             if "profile" in step:
-                self._runValidator(step["profile"], files)
+                await self._runValidator(step["profile"], files)
             elif "script" in step:
-                self._runExternalCommand(step["script"], files)
+                await self._runExternalCommand(step["script"], files)
     
-    def _runValidator(self, profile, files):
+    async def _runValidator(self, profile, files):
         out_file = tempfile.mkstemp(".xml")
         command = [
-            "java", "-jar", "/home/pieter/winhome/Downloads/validator_cli.jar",
+            "java", "-jar", "validator_cli.jar",
             "-ig", "qa", "-ig", "resources", "-recurse",
             "-profile", profile,
             "-output", out_file[1]] + files
         
-        if self.debug:
-            result_validator = subprocess.run(command)
-        else:
-            result_validator = subprocess.run(command, stdout = subprocess.PIPE, stderr = subprocess.STDOUT)
+        result_validator = await self._popen(command)
         
         success = False
         if result_validator:
-            result = subprocess.run(["python3", "/home/pieter/winhome/hl7-validator-action/analyze_results.py",  "--colorize", "--fail-at", "error", "--ignored-issues", "known-issues.yml", out_file[1]])
+            result = await self._popen(["python3", "../hl7-validator-action/analyze_results.py",  "--colorize", "--fail-at", "error", "--ignored-issues", "known-issues.yml", out_file[1]])
             if result:
                 success = True
         elif not self.debug:
-            print("\033[0;33mThere was an error running the validator. Re-run with the --debug option to see the output.\033[0m")
+            await self.printer.write("\033[0;33mThere was an error running the validator. Re-run with the --debug option to see the output.\033[0m")
         
         os.unlink(out_file[1])
         return success 
-        
-    def _runExternalCommand(self, command, files):
-        result = subprocess.run(command + " " + " ".join(files), shell = True)
-        return result.returncode == 0
+  
+    async def _runExternalCommand(self, command, files):
+        result = await self._popen(command + " " + " ".join(files), shell = True)
+        return result == 0
 
-class Menu:
+    async def _popen(self, command, shell = False):
+        ''' Helper method to open a subprocess, send the output to the Printer as it comes in, and return the results. '''
+        proc = subprocess.Popen(command, stdout = subprocess.PIPE, stderr = subprocess.STDOUT, universal_newlines = True, bufsize = 1, shell = shell)
+        while True:
+            line = proc.stdout.readline()
+            if not line:
+                break
+            await self.printer.write(line)
+        proc.wait()
+        return proc.returncode
+
+class QAServer:
+    ''' Class to serve an interactive menu using a web interface. '''
+
     def __init__(self, executor):
         self.executor = executor
-            
+
+        self.app = web.Application()
+        self.app.router.add_get("/ws",     self._handleWebsocket)
+        self.app.router.add_get("/",       self._handleGet)
+        self.app.router.add_get("/{file}", self._handleGet)
+        self.app.router.add_post("/",      self._handlePost)
+
+        self.ws = web.WebSocketResponse()
+    
+    def run(self):
+        web.run_app(self.app)
+
+    async def _handleWebsocket(self, request):
+        ''' Create and return a websocket when getting a GET request on /ws '''
+        if self.ws.closed:
+            self.ws = web.WebSocketResponse()
+        await self.ws.prepare(request)
+
+        # We don't actually expect communication _from_ the socket, but this is the way to keep it open
+        await self.ws.receive()
+
+        return self.ws
+
+    async def _handleGet(self, request):
+        ''' Handle GET request, which we do expect in two flavors: on the base or on a particular file. Any other
+            request will result in a 404. '''
+
+        requested_file = request.match_info.get('file', 'index.html')
+        if requested_file == 'index.html':
+            # The menu HTML. We need to insert the steps that we know of in the static file that's loaded from disk.
+            content_type = 'text/html'
+            content = open("util/qaAutomation/" + requested_file).read()
+            task_html = ""
+            for step in self.executor.getSteps():
+                task_html += f"<input type='checkbox' name='step_{step}'/>"
+                # TODO: Sanitize input for name use
+                task_html += f"<label for='step_{step}'>{step}</label><br />"
+            content = content.replace('<legend>Perform steps:</legend>', "<legend>Perform steps:</legend>" + task_html)
+        else:
+            try:
+                content = open("util/qaAutomation/" + requested_file).read()
+                content_type = mimetypes.guess_type("util/qaAutomation/" + requested_file)[0]
+            except IOError:
+                return web.Response(status = 404)    
+        
+        return web.Response(body = content, content_type = content_type)
+
+    async def _handlePost(self, request):
+        content = await request.post()
+        steps = []
+        for key in content:
+            if key.startswith("step_"):
+                steps.append(key.replace("step_", ""))
+        self.executor.printer.setSocket(self.ws)
+        asyncio.create_task(executor.execute(*steps))
+        return web.Response(body = '{"status": "all cool"}', content_type = "application/json")
+           
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description = "Perform QA on FHIR materials")
     parser.add_argument("-c", "--config", type = str, required = True,
                         help = "The YAML file to configure the QA process")
-    parser.add_argument("--menu", type = bool, default = False,
+    parser.add_argument("--menu", action = "store_true",
                         help = "Display a menu rather than running in batch mode")
     parser.add_argument("--steps", type = str, nargs = "*",
                         help = "The steps to execute (make sure to quote them if they contain spaces). If absent, all steps will be executed.")
@@ -148,7 +237,8 @@ if __name__ == "__main__":
 
     config = yaml.safe_load(open(args.config))
     file_collection = FileCollection(config, args.changed_only)
-    executor = StepExecutor(config, file_collection)
+    printer = Printer()
+    executor = StepExecutor(config, file_collection, printer)
     executor.setDebugging(args.debug)
    
     if args.steps != None:
@@ -157,6 +247,7 @@ if __name__ == "__main__":
         steps = executor.getSteps()
     
     if args.menu:
-        pass
+        menu = QAServer(executor)
+        menu.run()
     else:
-        executor.execute(*steps)        
+        asyncio.run(executor.execute(*steps))
