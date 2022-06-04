@@ -7,12 +7,37 @@ import asyncio
 import glob
 import mimetypes
 import os
+import re
 import subprocess
+import sys
 import tempfile
 import yaml
 
 class Printer:
     ''' Class to route and format output to the desired location '''
+
+    ANSI_TO_HTML = {
+        "0" : {
+            "0": "black",
+            "1": "darkred",
+            "2": "green",
+            "3": "orange",
+            "4": "darkblue",
+            "5": "purple",
+            "6": "lightblue",
+            "7": "lightgrey"
+        },
+        "1" : {
+            "0": "black",
+            "1": "red",
+            "2": "lightgreen",
+            "3": "yellow",
+            "4": "blue",
+            "5": "magenta",
+            "6": "cyan",
+            "7": "white"
+        }
+    }
 
     def __init__(self):
         self.socket = None
@@ -25,8 +50,26 @@ class Printer:
         ''' Write out the output to the terminal. If a web socket is set and available for writing, output will be
             echoed there as well. '''
         print(message, end = '')
+
         if self.socket != None and not self.socket.closed:
-            await self.socket.send_str(message)
+            # Set the message to "terminal colors" (lightgrey on black). Rewrite all ANSI color codes to HTML tags.
+            html_msg = re.sub('\x1b\[(0|1);3(.)m', self._ansiToHTML, message)
+            html_msg = re.sub('\x1b\[0m', "</span><span style='color: lightgrey'>", html_msg)
+            html_msg = f"<span style='color: lightgrey;'>{html_msg}</span><br />"
+
+            await self.socket.send_json({
+                "output": html_msg
+            })
+    
+    def _ansiToHTML(self, match_obj):
+        ''' Helper method to rewrite an ASNI color code to a HTML style tag. '''
+        print(match_obj.group(1), match_obj.group(2), self.ANSI_TO_HTML[match_obj.group(1)][match_obj.group(2)])
+        try:
+            color = self.ANSI_TO_HTML[match_obj.group(1)][match_obj.group(2)]
+        except KeyError:
+            return ""
+        
+        return f"</span><span style='color: {color}'>"
 
 class FileCollection(dict):
     def __init__(self, config, changed_only = True):
@@ -101,6 +144,8 @@ class StepExecutor:
         os.environ["changed_only"] = "1" if self.file_collection.changed_only else "0"
         self.file_collection.resolve()
     
+        overall_success = True
+
         for step_name in step_names:
             step = self.steps[step_name]
             
@@ -115,16 +160,22 @@ class StepExecutor:
                     files += self.file_collection[pattern]
         
             if len(files) == 0:
-                print("Nothing to check, skipping")
-                return True
+                await self.printer.write("Nothing to check, skipping")
+                return True # TODO: Should we return here?
                     
             if "profile" in step:
-                await self._runValidator(step["profile"], files)
+                overall_success &= await self._runValidator(step["profile"], files)
             elif "script" in step:
-                await self._runExternalCommand(step["script"], files)
+                overall_success &= await self._runExternalCommand(step["script"], files)
     
+        if overall_success:
+            await self.printer.write("All checks finished succesfully")
+        else:
+            await self.printer.write("Not all checks finished successfully")
+
     async def _runValidator(self, profile, files):
         out_file = tempfile.mkstemp(".xml")
+        out_file = 'output.xml'
         command = [
             "java", "-jar", "validator_cli.jar",
             "-ig", "qa", "-ig", "resources", "-recurse",
@@ -213,13 +264,19 @@ class QAServer:
 
     async def _handlePost(self, request):
         content = await request.post()
+
+        if "check_what" in content:
+            self.executor.file_collection.setChangedOnly(content["check_what"] == "changed")
+
         steps = []
         for key in content:
             if key.startswith("step_"):
                 steps.append(key.replace("step_", ""))
+
         self.executor.printer.setSocket(self.ws)
         asyncio.create_task(executor.execute(*steps))
-        return web.Response(body = '{"status": "all cool"}', content_type = "application/json")
+        
+        return web.Response(body = '{"status": "running"}', content_type = "application/json")
            
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description = "Perform QA on FHIR materials")
@@ -250,4 +307,6 @@ if __name__ == "__main__":
         menu = QAServer(executor)
         menu.run()
     else:
-        asyncio.run(executor.execute(*steps))
+        result = asyncio.run(executor.execute(*steps))
+        if not result:
+            sys.exit(1)
