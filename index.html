@@ -6,7 +6,8 @@
                 font-family: monospace;
                 background-color: black;
                 max-height: 400px;
-                overflow: scroll
+                overflow: scroll;
+                white-space: pre;
             }
         </style>
     </head>
@@ -38,6 +39,8 @@
                 <input type="radio" name="terminology" id="disabled" value="disabled"/>
                 <label for="all">Geen terminologieserver</label>
             </fieldset>
+            <input type="checkbox" id="debug" name="debug">
+            <label for="debug">Enable debugging</label><br />
             <button type="button" id="start_btn">Perform QA</button>
         </form>
         <div id="runs">

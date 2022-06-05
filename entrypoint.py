@@ -55,7 +55,7 @@ class Printer:
             # Set the message to "terminal colors" (lightgrey on black). Rewrite all ANSI color codes to HTML tags.
             html_msg = re.sub('\x1b\[(0|1);3(.)m', self._ansiToHTML, message)
             html_msg = re.sub('\x1b\[0m', "</span><span style='color: lightgrey'>", html_msg)
-            html_msg = f"<span style='color: lightgrey;'>{html_msg}</span><br />"
+            html_msg = f"<span style='color: lightgrey;'>{html_msg}</span>"
 
             await self.socket.send_json({
                 "output": html_msg
@@ -63,7 +63,6 @@ class Printer:
     
     def _ansiToHTML(self, match_obj):
         ''' Helper method to rewrite an ASNI color code to a HTML style tag. '''
-        print(match_obj.group(1), match_obj.group(2), self.ANSI_TO_HTML[match_obj.group(1)][match_obj.group(2)])
         try:
             color = self.ANSI_TO_HTML[match_obj.group(1)][match_obj.group(2)]
         except KeyError:
@@ -273,10 +272,20 @@ class QAServer:
             if key.startswith("step_"):
                 steps.append(key.replace("step_", ""))
 
-        self.executor.printer.setSocket(self.ws)
-        asyncio.create_task(executor.execute(*steps))
+        if "debug" in content:
+            self.executor.setDebugging(True)
+        else:
+            self.executor.setDebugging(False)
         
+        self.executor.printer.setSocket(self.ws)
+        asyncio.create_task(self._executeAndReport(steps))
         return web.Response(body = '{"status": "running"}', content_type = "application/json")
+
+    async def _executeAndReport(self, steps):
+        """ Execute the QA tooling and report back the result when done using the open web socket. """
+        result = await executor.execute(*steps)
+        status = "success" if result else "failure"
+        await self.ws.send_json({"result": status})
            
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description = "Perform QA on FHIR materials")
