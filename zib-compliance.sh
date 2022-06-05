@@ -1,11 +1,7 @@
 #!/bin/bash
 
 exit_code=0
-if [[ $debug == 1 ]]; then
-    output_redirect=""
-else
-    output_redirect="> /dev/null 2> /dev/null"
-fi
+output_redirect=">$debug_stream 2>$debug_stream"
 
 echo "Generating snapshots"
 eval /scripts/generatezibsnapshots.sh $@ $output_redirect

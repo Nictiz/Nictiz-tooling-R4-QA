@@ -55,7 +55,7 @@ class Printer:
             # Set the message to "terminal colors" (lightgrey on black). Rewrite all ANSI color codes to HTML tags.
             html_msg = re.sub('\x1b\[(0|1);3(.)m', self._ansiToHTML, message)
             html_msg = re.sub('\x1b\[0m', "</span><span style='color: lightgrey'>", html_msg)
-            html_msg = f"<span style='color: lightgrey;'>{html_msg}</span><br />"
+            html_msg = f"<span style='color: lightgrey;'>{html_msg}</span>"
 
             await self.socket.send_json({
                 "output": html_msg
@@ -63,7 +63,6 @@ class Printer:
     
     def _ansiToHTML(self, match_obj):
         ''' Helper method to rewrite an ASNI color code to a HTML style tag. '''
-        print(match_obj.group(1), match_obj.group(2), self.ANSI_TO_HTML[match_obj.group(1)][match_obj.group(2)])
         try:
             color = self.ANSI_TO_HTML[match_obj.group(1)][match_obj.group(2)]
         except KeyError:
@@ -122,7 +121,7 @@ class FileCollection(dict):
                             combined.append(file_name)
 
 class StepExecutor:
-    def __init__(self, config, file_collection, printer):
+    def __init__(self, config, file_collection, printer, debug_strategy = None):
         if "steps" in config:
             self.steps = config["steps"]
         else:
@@ -132,15 +131,21 @@ class StepExecutor:
         self.printer         = printer
 
         self.debug = False
+
+        self.execution_num = 0
+        self.debug_strategy = debug_strategy
+        self.debug_files = []
     
     def getSteps(self):
         return self.steps.keys()
     
-    def setDebugging(self, debug):
-        self.debug = debug
+    def setDebugStrategy(self, debug_strategy):
+        self.debug_strategy = debug_strategy
     
     async def execute(self, *step_names):
-        os.environ["debug"] = "1" if self.debug else "0"
+        self.execution_num += 1
+        self.debug_files.append({})
+
         os.environ["changed_only"] = "1" if self.file_collection.changed_only else "0"
         self.file_collection.resolve()
     
@@ -148,9 +153,14 @@ class StepExecutor:
 
         for step_name in step_names:
             step = self.steps[step_name]
-            
+       
             await self.printer.write("\033[1;37m+++ " + step_name + "\033[0m")
             
+            if self.debug_strategy == 'files':
+                debug_file = tempfile.mkstemp(".txt") # TODO: Cleanup
+                debug_file_path = debug_file[1]
+                self.debug_files[-1][step_name] = debug_file_path
+
             files = []
             if "patterns" in step:
                 patterns = step["patterns"]
@@ -164,29 +174,35 @@ class StepExecutor:
                 return True # TODO: Should we return here?
                     
             if "profile" in step:
-                overall_success &= await self._runValidator(step["profile"], files)
+                overall_success &= await self._runValidator(step["profile"], files, debug_file_path = debug_file_path)
             elif "script" in step:
-                overall_success &= await self._runExternalCommand(step["script"], files)
+                overall_success &= await self._runExternalCommand(step["script"], files, debug_file_path = debug_file_path)
     
         if overall_success:
             await self.printer.write("All checks finished succesfully")
         else:
             await self.printer.write("Not all checks finished successfully")
+        return overall_success
 
-    async def _runValidator(self, profile, files):
+    async def _runValidator(self, profile, files, debug_file_path = None):
         out_file = tempfile.mkstemp(".xml")
-        out_file = 'output.xml'
         command = [
             "java", "-jar", "validator_cli.jar",
             "-ig", "qa", "-ig", "resources", "-recurse",
             "-profile", profile,
             "-output", out_file[1]] + files
         
-        result_validator = await self._popen(command)
+        if self.debug_strategy == "print":
+            debug_stream = subprocess.PIPE
+        elif self.debug_strategy == "files" and debug_file_path:
+            debug_stream = open(debug_file_path, "w")
+        else:
+            debug_stream = subprocess.DEVNULL
+        result_validator = await self._popen(command, debug_stream)
         
         success = False
         if result_validator:
-            result = await self._popen(["python3", "../hl7-validator-action/analyze_results.py",  "--colorize", "--fail-at", "error", "--ignored-issues", "known-issues.yml", out_file[1]])
+            result = await self._popen(["python3", "../hl7-validator-action/analyze_results.py",  "--colorize", "--fail-at", "error", "--ignored-issues", "known-issues.yml", out_file[1]], subprocess.PIPE)
             if result:
                 success = True
         elif not self.debug:
@@ -195,18 +211,28 @@ class StepExecutor:
         os.unlink(out_file[1])
         return success 
   
-    async def _runExternalCommand(self, command, files):
-        result = await self._popen(command + " " + " ".join(files), shell = True)
+    async def _runExternalCommand(self, command, files, debug_file_path = None):
+        if self.debug_strategy == "print":
+            os.environ["debug_stream"] = "&1"
+        elif self.debug_strategy == "files" and debug_file_path:
+            os.environ["debug_stream"] = debug_file_path
+        else:
+            os.environ["debug_stream"] = "/dev/null"
+
+        result = await self._popen(command + " " + " ".join(files), out_stream = subprocess.PIPE, shell = True)
+        print(open(debug_file_path).read())
         return result == 0
 
-    async def _popen(self, command, shell = False):
+    async def _popen(self, command, out_stream = None, shell = False):
         ''' Helper method to open a subprocess, send the output to the Printer as it comes in, and return the results. '''
-        proc = subprocess.Popen(command, stdout = subprocess.PIPE, stderr = subprocess.STDOUT, universal_newlines = True, bufsize = 1, shell = shell)
-        while True:
-            line = proc.stdout.readline()
-            if not line:
-                break
-            await self.printer.write(line)
+
+        proc = subprocess.Popen(command, stdout = out_stream, stderr = subprocess.STDOUT, universal_newlines = True, bufsize = 1, shell = shell)
+        if proc.stdout:
+            while True:
+                line = proc.stdout.readline()
+                if not line:
+                    break
+                await self.printer.write(line)
         proc.wait()
         return proc.returncode
 
@@ -217,10 +243,11 @@ class QAServer:
         self.executor = executor
 
         self.app = web.Application()
-        self.app.router.add_get("/ws",     self._handleWebsocket)
-        self.app.router.add_get("/",       self._handleGet)
-        self.app.router.add_get("/{file}", self._handleGet)
-        self.app.router.add_post("/",      self._handlePost)
+        self.app.router.add_get("/ws",                    self._handleWebsocket)
+        self.app.router.add_get("/",                      self._handleGet)
+        self.app.router.add_get("/debug/{execution_num}", self._handleDebugInfo)
+        self.app.router.add_get("/{file}",                self._handleGet)
+        self.app.router.add_post("/",                     self._handlePost)
 
         self.ws = web.WebSocketResponse()
     
@@ -274,9 +301,18 @@ class QAServer:
                 steps.append(key.replace("step_", ""))
 
         self.executor.printer.setSocket(self.ws)
-        asyncio.create_task(executor.execute(*steps))
+        execution = asyncio.create_task(self._executeAndReport(steps))
         
-        return web.Response(body = '{"status": "running"}', content_type = "application/json")
+        return web.Response(body = f'{"run": executor.execution_num}', content_type = "application/json")
+    
+    async def _handleDebugInfo(self, request):
+        execution_num = request.match_info.get("execution_num")
+        
+
+    async def _executeAndReport(self, steps):
+        result = await executor.execute(*steps)
+        status = "success" if result else "failure"
+        await self.ws.send_json({"result": status})
            
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description = "Perform QA on FHIR materials")
@@ -296,7 +332,12 @@ if __name__ == "__main__":
     file_collection = FileCollection(config, args.changed_only)
     printer = Printer()
     executor = StepExecutor(config, file_collection, printer)
-    executor.setDebugging(args.debug)
+    if args.menu:
+        executor.setDebugStrategy("files")
+    elif args.debug:
+        executor.setDebugStrategy("print")
+    else:
+        executor.setDebugStrategy(None)
    
     if args.steps != None:
         steps = args.steps
