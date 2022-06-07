@@ -46,9 +46,14 @@ class Printer:
         ''' Set a web socket to send the output to. '''
         self.socket = socket
 
+    async def writeLine(self, message):
+        """ Write a line to the terminal. If a web socket is set and available for writing, the output will be echoed
+            there as well. """
+        await self.write(message + "\n")
+
     async def write(self, message):
-        ''' Write out the output to the terminal. If a web socket is set and available for writing, output will be
-            echoed there as well. '''
+        """ Write out the output to the terminal. If a web socket is set and available for writing, the output will be
+            echoed there as well. """
         print(message, end = '')
 
         if self.socket != None and not self.socket.closed:
