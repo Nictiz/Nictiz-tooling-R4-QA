@@ -8,11 +8,17 @@ import glob
 import mimetypes
 import os
 import re
+import requests
 import subprocess
 import sys
 import tempfile
 import yaml
 
+REPO_DIR   = "/repo"
+TOOLS_DIR  = "/tools"
+SCRIPT_DIR = "scripts"
+TX_PROXY   = "127.0.0.1:8080"
+TX_SERVER  = "http://v4.combined.tx"
 class Printer:
     ''' Class to route and format output to the desired location '''
 
@@ -84,7 +90,12 @@ class FileCollection(dict):
         
         for pattern_name in self.patterns:
             self[pattern_name] = []
-            
+        
+        if "main branch" in config:
+            self.main_branch = config["main branch"]
+        else:
+            self.main_branch = "origin/main"
+
         self.changed_only = changed_only
 
     def setChangedOnly(self, changed_only):
@@ -94,11 +105,11 @@ class FileCollection(dict):
         # Reset all file lists
         for pattern_name in self.keys():
             self[pattern_name] = []
-            
+
         if self.changed_only:
             # If we're only interested in the files that are new or changed compared to the main branch, we first ask
             # git for a list of all these files, committed or not
-            committed   = subprocess.run(["git", "diff", "--name-only", "--diff-filter=ACM", "origin/main"], capture_output = True)
+            committed   = subprocess.run(["git", "diff", "--name-only", "--diff-filter=ACM", self.main_branch], capture_output = True)
             uncommitted = subprocess.run(["git", "ls-files", "--others"], capture_output = True)
             if committed and uncommitted:
                 changed_files =  committed.stdout.decode("UTF-8").split("\n")
@@ -137,6 +148,13 @@ class StepExecutor:
         self.printer         = printer
 
         self.debug = False
+
+        # Export the variables for external scripts to use
+        os.environ["tools_dir"]  = TOOLS_DIR
+        os.environ["work_dir"]   = REPO_DIR
+        os.environ["script_dir"] = os.path.join(REPO_DIR, SCRIPT_DIR)
+        os.environ["tx_proxy"]   = TX_PROXY
+        os.environ["tx_server"]  = TX_SERVER
     
     def getSteps(self):
         return self.steps.keys()
@@ -150,11 +168,9 @@ class StepExecutor:
     async def execute(self, *step_names):
         os.environ["debug"] = "1" if self.debug else "0"
         os.environ["changed_only"] = "1" if self.file_collection.changed_only else "0"
-        self._resetFiles()
         self.file_collection.resolve()
     
         overall_success = True
-
         for step_name in step_names:
             step = self.steps[step_name]
             
@@ -183,20 +199,12 @@ class StepExecutor:
         
         return overall_success
 
-    def _resetFiles(self):
-        """ Copy all working files to a temporary directory. """
-        # The assumption is that we use run in a temp container, but for good measure, lets erase the target location first.
-        if os.path.exists("/workdir"):
-            shutil.rmtree("/workdir")
-        shutil.copytree("/repo", "/workdir")
-        os.chdir("/workdir")
-
     async def _runValidator(self, profile, files):
         out_file = tempfile.mkstemp(".xml")
         if self.tx_disabled:
             tx_opt = ["-tx", "n/a"]
         else:
-            tx_opt = ["-proxy", "127.0.0.1:8080", "-tx", "http://v4.combined.tx"]
+            tx_opt = ["-proxy", TX_PROXY, "-tx", TX_SERVER]
         command = [
             "java", "-jar", "/tools/validator/validator.jar",
             '-version', "4.0.1",
@@ -219,7 +227,7 @@ class StepExecutor:
         return success 
   
     async def _runExternalCommand(self, command, files):
-        result = await self._popen(command + " " + " ".join(files), shell = True)
+        result = await self._popen(os.path.join(SCRIPT_DIR, command) + " " + " ".join(files), shell = True)
         return result == 0
 
     async def _popen(self, command, shell = False, suppress_output = False):
@@ -316,7 +324,7 @@ class QAServer:
                 }
                 requests.post("http://v4.combined.tx/resetNTSCredentials",
                     data = nts_credentials,
-                    proxies = {"http": "http://localhost:8080"})
+                    proxies = {"http": TX_PROXY})
 
         if "debug" in content:
             self.executor.setDebugging(True)
@@ -344,7 +352,7 @@ if __name__ == "__main__":
                         help = "The steps to execute (make sure to quote them if they contain spaces). If absent, all steps will be executed.")
     parser.add_argument("--changed-only", type = bool, default = False,
                         help = "Only validate changed files rather than all files (compared to the main branch)")
-    parser.add_argument("--debug", type = bool, default = False,
+    parser.add_argument("--debug", action = "store_true",
                         help = "Display debugging information for when something goes wrong")
     args = parser.parse_args()
 
@@ -358,6 +366,8 @@ if __name__ == "__main__":
     except KeyError:
         TX_MENU_PORT = 9001
     
+    os.chdir(REPO_DIR)
+
     config = yaml.safe_load(open(args.config))
     file_collection = FileCollection(config, args.changed_only)
     printer = Printer()
