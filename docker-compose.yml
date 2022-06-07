@@ -1,12 +1,12 @@
 version: "3.9"
 services:
-  qa-zib2020-r4:
+  nictiz-r4-qa:
     build: .
-    image: nictiz/qa-zib2020-r4
-    container_name: qa-zib2020-r4
+    image: nictiz/nictiz-r4-qa-tooling
+    container_name: nictiz-r4-qa
     volumes:
       - type: bind
-        source: ../..
+        source: .
         target: /repo
         read_only: true
     environment:
@@ -15,6 +15,5 @@ services:
       - MENU_PORT=9000
       - TX_MENU_PORT=9001
     ports:
-      - 8081:8081
       - 9000:9000
       - 9001:9001
