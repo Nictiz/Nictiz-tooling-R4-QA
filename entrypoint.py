@@ -86,7 +86,7 @@ class FileCollection(dict):
             self[pattern_name] = []
             
         self.changed_only = changed_only
-            
+
     def setChangedOnly(self, changed_only):
         self.changed_only = changed_only
         
@@ -132,6 +132,7 @@ class StepExecutor:
         else:
             self.steps = []
 
+        self.tx_disabled     = False
         self.file_collection = file_collection
         self.printer         = printer
 
@@ -143,9 +144,13 @@ class StepExecutor:
     def setDebugging(self, debug):
         self.debug = debug
     
+    def disableTerminology(self, tx_disabled = False):
+        self.tx_disabled = tx_disabled
+
     async def execute(self, *step_names):
         os.environ["debug"] = "1" if self.debug else "0"
         os.environ["changed_only"] = "1" if self.file_collection.changed_only else "0"
+        self._resetFiles()
         self.file_collection.resolve()
     
         overall_success = True
@@ -153,7 +158,7 @@ class StepExecutor:
         for step_name in step_names:
             step = self.steps[step_name]
             
-            await self.printer.write("\033[1;37m+++ " + step_name + "\033[0m")
+            await self.printer.writeLine("\033[1;37m+++ " + step_name + "\033[0m")
             
             files = []
             if "patterns" in step:
@@ -164,37 +169,51 @@ class StepExecutor:
                     files += self.file_collection[pattern]
         
             if len(files) == 0:
-                await self.printer.write("Nothing to check, skipping")
-                return True # TODO: Should we return here?
-                    
-            if "profile" in step:
-                overall_success &= await self._runValidator(step["profile"], files)
-            elif "script" in step:
-                overall_success &= await self._runExternalCommand(step["script"], files)
+                await self.printer.writeLine("Nothing to check, skipping")
+            else:
+                if "profile" in step:
+                    overall_success &= await self._runValidator(step["profile"], files)
+                elif "script" in step:
+                    overall_success &= await self._runExternalCommand(step["script"], files)
     
         if overall_success:
-            await self.printer.write("All checks finished succesfully")
+            await self.printer.writeLine("All checks finished succesfully")
         else:
-            await self.printer.write("Not all checks finished successfully")
+            await self.printer.writeLine("Not all checks finished successfully")
+        
+        return overall_success
+
+    def _resetFiles(self):
+        """ Copy all working files to a temporary directory. """
+        # The assumption is that we use run in a temp container, but for good measure, lets erase the target location first.
+        if os.path.exists("/workdir"):
+            shutil.rmtree("/workdir")
+        shutil.copytree("/repo", "/workdir")
+        os.chdir("/workdir")
 
     async def _runValidator(self, profile, files):
         out_file = tempfile.mkstemp(".xml")
-        out_file = 'output.xml'
+        if self.tx_disabled:
+            tx_opt = ["-tx", "n/a"]
+        else:
+            tx_opt = ["-proxy", "127.0.0.1:8080", "-tx", "http://v4.combined.tx"]
         command = [
-            "java", "-jar", "validator_cli.jar",
+            "java", "-jar", "/tools/validator/validator.jar",
+            '-version', "4.0.1",
             "-ig", "qa", "-ig", "resources", "-recurse",
-            "-profile", profile,
+            "-profile", profile] + tx_opt + [
             "-output", out_file[1]] + files
         
-        result_validator = await self._popen(command)
+        suppress_output = False if self.debug else True
+        result_validator = await self._popen(command, suppress_output=suppress_output)
         
         success = False
-        if result_validator:
-            result = await self._popen(["python3", "../hl7-validator-action/analyze_results.py",  "--colorize", "--fail-at", "error", "--ignored-issues", "known-issues.yml", out_file[1]])
-            if result:
+        if result_validator == 0:
+            result = await self._popen(["python3", "/tools/hl7-fhir-validator-action/analyze_results.py",  "--colorize", "--fail-at", "error", "--ignored-issues", "known-issues.yml", out_file[1]])
+            if result == 0:
                 success = True
         elif not self.debug:
-            await self.printer.write("\033[0;33mThere was an error running the validator. Re-run with the --debug option to see the output.\033[0m")
+            await self.printer.writeLine("\033[0;33mThere was an error running the validator. Re-run with the --debug option to see the output.\033[0m")
         
         os.unlink(out_file[1])
         return success 
@@ -203,14 +222,20 @@ class StepExecutor:
         result = await self._popen(command + " " + " ".join(files), shell = True)
         return result == 0
 
-    async def _popen(self, command, shell = False):
+    async def _popen(self, command, shell = False, suppress_output = False):
         ''' Helper method to open a subprocess, send the output to the Printer as it comes in, and return the results. '''
-        proc = subprocess.Popen(command, stdout = subprocess.PIPE, stderr = subprocess.STDOUT, universal_newlines = True, bufsize = 1, shell = shell)
-        while True:
-            line = proc.stdout.readline()
-            if not line:
-                break
-            await self.printer.write(line)
+        if suppress_output:
+            stdout = subprocess.DEVNULL
+        else:
+            stdout = subprocess.PIPE
+        proc = subprocess.Popen(command, stdout = stdout, stderr = subprocess.STDOUT, universal_newlines = True, bufsize = 1, shell = shell)
+        
+        if not suppress_output:
+            while True:
+                line = proc.stdout.readline()
+                if not line:
+                    break
+                await self.printer.write(line)
         proc.wait()
         return proc.returncode
 
@@ -229,7 +254,7 @@ class QAServer:
         self.ws = web.WebSocketResponse()
     
     def run(self):
-        web.run_app(self.app)
+        web.run_app(self.app, port = MENU_PORT)
 
     async def _handleWebsocket(self, request):
         ''' Create and return a websocket when getting a GET request on /ws '''
@@ -247,22 +272,22 @@ class QAServer:
             request will result in a 404. '''
 
         requested_file = request.match_info.get('file', 'index.html')
+        try:
+            content = open("/server/" + requested_file).read()
+            content_type = mimetypes.guess_type("/server/" + requested_file)[0]
+        except IOError:
+            return web.Response(status = 404)    
         if requested_file == 'index.html':
             # The menu HTML. We need to insert the steps that we know of in the static file that's loaded from disk.
             content_type = 'text/html'
-            content = open("util/qaAutomation/" + requested_file).read()
+
+            content = content.replace('<a id="tx_proxy">', f'<a href="http://localhost:{TX_MENU_PORT}" target="_blank">')
             task_html = ""
             for step in self.executor.getSteps():
                 task_html += f"<input type='checkbox' name='step_{step}'/>"
                 # TODO: Sanitize input for name use
                 task_html += f"<label for='step_{step}'>{step}</label><br />"
             content = content.replace('<legend>Perform steps:</legend>', "<legend>Perform steps:</legend>" + task_html)
-        else:
-            try:
-                content = open("util/qaAutomation/" + requested_file).read()
-                content_type = mimetypes.guess_type("util/qaAutomation/" + requested_file)[0]
-            except IOError:
-                return web.Response(status = 404)    
         
         return web.Response(body = content, content_type = content_type)
 
@@ -277,6 +302,22 @@ class QAServer:
             if key.startswith("step_"):
                 steps.append(key.replace("step_", ""))
 
+        if "terminology" in content:
+            if content["terminology"] == "disabled":
+                self.executor.disableTerminology(True)
+            else:
+                self.executor.disableTerminology(False)
+
+                # Always set the supplied NTS credentials again for an execution, as the user might have removed them
+                # to check without the NTS
+                nts_credentials = {
+                    "user": content["nts_user"],
+                    "pass": content["nts_pass"]
+                }
+                requests.post("http://v4.combined.tx/resetNTSCredentials",
+                    data = nts_credentials,
+                    proxies = {"http": "http://localhost:8080"})
+
         if "debug" in content:
             self.executor.setDebugging(True)
         else:
@@ -284,10 +325,11 @@ class QAServer:
         
         self.executor.printer.setSocket(self.ws)
         asyncio.create_task(self._executeAndReport(steps))
-        return web.Response(body = '{"status": "running"}', content_type = "application/json")
+        return web.Response()
 
     async def _executeAndReport(self, steps):
         """ Execute the QA tooling and report back the result when done using the open web socket. """
+        await self.ws.send_json({"status": "running"})
         result = await executor.execute(*steps)
         status = "success" if result else "failure"
         await self.ws.send_json({"result": status})
@@ -306,12 +348,24 @@ if __name__ == "__main__":
                         help = "Display debugging information for when something goes wrong")
     args = parser.parse_args()
 
+    try:
+        MENU_PORT = os.environ["MENU_PORT"]
+    except KeyError:
+        MENU_PORT = 9000
+
+    try:
+        TX_MENU_PORT = os.environ["TX_MENU_PORT"]
+    except KeyError:
+        TX_MENU_PORT = 9001
+    
     config = yaml.safe_load(open(args.config))
     file_collection = FileCollection(config, args.changed_only)
     printer = Printer()
     executor = StepExecutor(config, file_collection, printer)
     executor.setDebugging(args.debug)
    
+    mitmweb = subprocess.Popen(["mitmweb", "--web-iface", "0.0.0.0", "--web-port", TX_MENU_PORT, "-s", "/tools/CombinedTX/CombinedTX.py", "-q"])
+
     if args.steps != None:
         steps = args.steps
     else:
@@ -324,3 +378,5 @@ if __name__ == "__main__":
         result = asyncio.run(executor.execute(*steps))
         if not result:
             sys.exit(1)
+
+    mitmweb.terminate()

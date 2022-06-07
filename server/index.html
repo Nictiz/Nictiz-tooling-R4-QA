@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <style>
+            .qa_output {
+                font-family: monospace;
+                background-color: black;
+                max-height: 400px;
+                overflow: scroll;
+                white-space: pre;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>QA tooling</h1>
+        <form id="qa_form">
+            <fieldset name="steps">
+                <legend>Perform steps:</legend>
+            </fieldset>
+            <fieldset>
+                <legend>Check:</legend>
+                <input type="radio" name="check_what" id="all" value="all"/>
+                <label for="all">All material</label>
+                <br />
+                <input type="radio" name="check_what" id="changed" value="changed"/>
+                <label for="changed">Changed material only</label>
+            </fieldset>
+            <fieldset>
+                <legend>Terminology:</legend>
+                <input type="radio" name="terminology" id="enabled" value="enabled"/>
+                <label for="enabled">Default default server, or the NTS if a username and password are supplied (default server will act as backup)</label>
+                <label for="nts_user">NTS username:</label>
+                <input name="nts_user"/>
+                <label for="nts_user">NTS password:</label>
+                <input name="nts_pass" type="password"/><br />
+                <input type="radio" name="terminology" id="disabled" value="disabled"/>
+                <label for="disabled">No terminology server</label><br />
+                <p><a id="tx_proxy">Inspect the terminology server interactions</a></p>
+            </fieldset>
+            <input type="checkbox" id="debug" name="debug">
+            <label for="debug">Enable debugging</label><br />
+            <button type="button" id="start_btn">Perform QA</button>
+        </form>
+        <div id="runs">
+        </div>
+
+        <script src="menu.js"></script>
+    </body>
+</html>
