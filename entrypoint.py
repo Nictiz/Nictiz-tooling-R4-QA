@@ -14,11 +14,10 @@ import sys
 import tempfile
 import yaml
 
-REPO_DIR   = "/repo"
-TOOLS_DIR  = "/tools"
-SCRIPT_DIR = "scripts"
-TX_PROXY   = "127.0.0.1:8080"
-TX_SERVER  = "http://v4.combined.tx"
+REPO_DIR    = "/repo"
+TOOLS_DIR   = "/tools"
+TX_PROXY    = "127.0.0.1:8080"
+TX_SERVER   = "http://v4.combined.tx"
 CONFIG_FILE = "qa.yaml"
 class Printer:
     ''' Class to route and format output to the desired location '''
@@ -142,7 +141,7 @@ class StepExecutor:
         if "steps" in config:
             self.steps = config["steps"]
         else:
-            self.steps = []
+            self.steps = {}
 
         self.tx_disabled       = False
         self.use_tx_proxy      = use_tx_proxy
@@ -154,7 +153,6 @@ class StepExecutor:
         # Export the variables for external scripts to use
         os.environ["tools_dir"]  = TOOLS_DIR
         os.environ["work_dir"]   = REPO_DIR
-        os.environ["script_dir"] = os.path.join(REPO_DIR, SCRIPT_DIR)
         os.environ["tx_proxy"]   = TX_PROXY
         os.environ["tx_server"]  = TX_SERVER
     
@@ -231,7 +229,7 @@ class StepExecutor:
         return success 
   
     async def _runExternalCommand(self, command, files):
-        result = await self._popen(os.path.join(SCRIPT_DIR, command) + " " + " ".join(files), shell = True)
+        result = await self._popen(command + " " + " ".join(files), shell = True)
         return result == 0
 
     async def _popen(self, command, shell = False, suppress_output = False):
