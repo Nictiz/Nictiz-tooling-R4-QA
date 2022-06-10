@@ -19,6 +19,7 @@ TOOLS_DIR  = "/tools"
 SCRIPT_DIR = "scripts"
 TX_PROXY   = "127.0.0.1:8080"
 TX_SERVER  = "http://v4.combined.tx"
+CONFIG_FILE = "qa.yaml"
 class Printer:
     ''' Class to route and format output to the desired location '''
 
@@ -344,8 +345,6 @@ class QAServer:
            
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description = "Perform QA on FHIR materials")
-    parser.add_argument("-c", "--config", type = str, required = True,
-                        help = "The YAML file to configure the QA process")
     parser.add_argument("--menu", action = "store_true",
                         help = "Display a menu rather than running in batch mode")
     parser.add_argument("--steps", type = str, nargs = "*",
@@ -368,7 +367,8 @@ if __name__ == "__main__":
     
     os.chdir(REPO_DIR)
 
-    config = yaml.safe_load(open(args.config))
+    with open(CONFIG_FILE) as config_file:
+        config = yaml.safe_load(config_file)
     file_collection = FileCollection(config, args.changed_only)
     printer = Printer()
     executor = StepExecutor(config, file_collection, printer)
