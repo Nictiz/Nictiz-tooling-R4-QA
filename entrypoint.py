@@ -148,6 +148,11 @@ class StepExecutor:
         self.file_collection   = file_collection
         self.printer           = printer
 
+        # By default, we handle the Nictiz profiling guidelines package. Additional ig's may be defined in the config file.
+        self.igs = ["nictiz.fhir.nl.r4.profilingguidelines"]
+        if "igs" in config:
+            self.igs += [ig for ig in config["igs"]]
+
         self.debug = False
 
         # Export the variables for external scripts to use
@@ -207,10 +212,13 @@ class StepExecutor:
             tx_opt = ["-proxy", TX_PROXY, "-tx", TX_SERVER]
         else:
             tx_opt = []
+        igs = []
+        for ig in self.igs:
+            igs += ["-ig", ig]
+
         command = [
             "java", "-jar", "/tools/validator/validator.jar",
-            '-version', "4.0.1",
-            "-ig", "qa", "-ig", "resources", "-recurse",
+            '-version', "4.0.1"] + igs + ["-recurse",
             "-profile", profile] + tx_opt + [
             "-output", out_file[1]] + files
         
