@@ -2,7 +2,7 @@ version: "3.9"
 services:
   nictiz-r4-qa:
     build: .
-    image: nictiz/nictiz-r4-qa-tooling
+    image: nictiz/nictiz-r4-qa
     container_name: nictiz-r4-qa
     volumes:
       - type: bind
