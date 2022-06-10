@@ -19,6 +19,7 @@ TOOLS_DIR   = "/tools"
 TX_PROXY    = "127.0.0.1:8080"
 TX_SERVER   = "http://v4.combined.tx"
 CONFIG_FILE = "qa.yaml"
+
 class Printer:
     ''' Class to route and format output to the desired location '''
 
@@ -153,6 +154,10 @@ class StepExecutor:
         if "igs" in config:
             self.igs += [ig for ig in config["igs"]]
 
+        self.ignored_issues = None
+        if "ignored issues" in config:
+            self.ignored_issues = config["ignored issues"]
+
         self.debug = False
 
         # Export the variables for external scripts to use
@@ -227,7 +232,11 @@ class StepExecutor:
         
         success = False
         if result_validator == 0:
-            result = await self._popen(["python3", "/tools/hl7-fhir-validator-action/analyze_results.py",  "--colorize", "--fail-at", "error", "--ignored-issues", "known-issues.yml", out_file[1]])
+            command = ["python3", "/tools/hl7-fhir-validator-action/analyze_results.py",  "--colorize", "--fail-at", "error"]
+            if self.ignored_issues:
+                command += ["--ignored-issues", self.ignored_issues]
+            command += [out_file[1]]
+            result = await self._popen(command)
             if result == 0:
                 success = True
         elif not self.debug:
