@@ -138,15 +138,16 @@ class FileCollection(dict):
                             combined.append(file_name)
 
 class StepExecutor:
-    def __init__(self, config, file_collection, printer):
+    def __init__(self, config, file_collection, printer, use_tx_proxy):
         if "steps" in config:
             self.steps = config["steps"]
         else:
             self.steps = []
 
-        self.tx_disabled     = False
-        self.file_collection = file_collection
-        self.printer         = printer
+        self.tx_disabled       = False
+        self.use_tx_proxy      = use_tx_proxy
+        self.file_collection   = file_collection
+        self.printer           = printer
 
         self.debug = False
 
@@ -204,8 +205,10 @@ class StepExecutor:
         out_file = tempfile.mkstemp(".xml")
         if self.tx_disabled:
             tx_opt = ["-tx", "n/a"]
-        else:
+        elif self.use_tx_proxy:
             tx_opt = ["-proxy", TX_PROXY, "-tx", TX_SERVER]
+        else:
+            tx_opt = []
         command = [
             "java", "-jar", "/tools/validator/validator.jar",
             '-version', "4.0.1",
@@ -345,15 +348,22 @@ class QAServer:
            
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description = "Perform QA on FHIR materials")
-    parser.add_argument("--menu", action = "store_true",
-                        help = "Display a menu rather than running in batch mode")
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--menu", action = "store_true",
+                        help = "Display a menu rather than running in batch mode.")
     parser.add_argument("--steps", type = str, nargs = "*",
                         help = "The steps to execute (make sure to quote them if they contain spaces). If absent, all steps will be executed.")
-    parser.add_argument("--changed-only", type = bool, default = False,
-                        help = "Only validate changed files rather than all files (compared to the main branch)")
+    parser.add_argument("--changed-only", action = "store_true",
+                        help = "Only validate changed files rather than all files (compared to the main branch).")
+    group.add_argument("--enable-tx-proxy", action = "store_true",
+                        help = "Enable the use of the terminology server proxy. This is needed to use the Nationale Terminologieserver or to inspect the traffic with the terminology server. This is automatically enabled when running in menu mode.")
+    parser.add_argument("--no-tx", action = "store_true",
+                        help = "Disable the use of a terminology server all together.")
     parser.add_argument("--debug", action = "store_true",
-                        help = "Display debugging information for when something goes wrong")
+                        help = "Display debugging information for when something goes wrong.")
     args = parser.parse_args()
+    if args.menu:
+        args.enable_tx_proxy = True
 
     try:
         MENU_PORT = os.environ["MENU_PORT"]
@@ -371,10 +381,12 @@ if __name__ == "__main__":
         config = yaml.safe_load(config_file)
     file_collection = FileCollection(config, args.changed_only)
     printer = Printer()
-    executor = StepExecutor(config, file_collection, printer)
+    executor = StepExecutor(config, file_collection, printer, args.enable_tx_proxy)
+    executor.disableTerminology(args.no_tx)
     executor.setDebugging(args.debug)
    
-    mitmweb = subprocess.Popen(["mitmweb", "--web-iface", "0.0.0.0", "--web-port", TX_MENU_PORT, "-s", "/tools/CombinedTX/CombinedTX.py", "-q"])
+    if args.enable_tx_proxy:
+        mitmweb = subprocess.Popen(["mitmweb", "--web-iface", "0.0.0.0", "--web-port", TX_MENU_PORT, "-s", "/tools/CombinedTX/CombinedTX.py", "-q"])
 
     if args.steps != None:
         steps = args.steps
@@ -389,4 +401,5 @@ if __name__ == "__main__":
         if not result:
             sys.exit(1)
 
-    mitmweb.terminate()
+    if args.enable_tx_proxy:
+        mitmweb.terminate()
