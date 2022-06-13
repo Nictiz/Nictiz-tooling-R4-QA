@@ -32,4 +32,4 @@ RUN git clone -b v0.17 --depth 1 https://github.com/pieter-edelman-nictiz/hl7-fh
 COPY entrypoint.py /entrypoint.py
 COPY CombinedTX /tools/CombinedTX
 COPY server /server
-ENTRYPOINT ["python3", "entrypoint.py"]
+ENTRYPOINT ["python3", "/entrypoint.py"]
