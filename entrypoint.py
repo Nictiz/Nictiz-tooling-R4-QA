@@ -46,8 +46,9 @@ class Printer:
         }
     }
 
-    def __init__(self):
+    def __init__(self, write_github = False):
         self.socket = None
+        self.write_github = write_github
     
     def setSocket(self, socket):
         ''' Set a web socket to send the output to. '''
@@ -72,7 +73,12 @@ class Printer:
             await self.socket.send_json({
                 "output": html_msg
             })
-    
+
+    def writeGithubOutput(self, key, value):
+        """ Set an output value when executed on Github. """
+        if self.write_github:
+            print(f"::set-output name={key}::{value}")
+
     def _ansiToHTML(self, match_obj):
         ''' Helper method to rewrite an ASNI color code to a HTML style tag. '''
         try:
@@ -81,7 +87,6 @@ class Printer:
             return ""
         
         return f"</span><span style='color: {color}'>"
-
 class FileCollection(dict):
     def __init__(self, config, changed_only = True):
         if "patterns" in config:
@@ -196,11 +201,15 @@ class StepExecutor:
         
             if len(files) == 0:
                 await self.printer.writeLine("Nothing to check, skipping")
+                self.printer.writeGithubOutput(f"step[{step_name}][skipped]", "true")
             else:
+                self.printer.writeGithubOutput(f"step[{step_name}][skipped]", "false")
                 if "profile" in step:
-                    overall_success &= await self._runValidator(step["profile"], files)
+                    success = await self._runValidator(step["profile"], files)
                 elif "script" in step:
-                    overall_success &= await self._runExternalCommand(step["script"], files)
+                    success = await self._runExternalCommand(step["script"], files)
+                overall_success &= success
+                self.printer.writeGithubOutput(f"step[{step_name}][result]", "success" if success else "failure")
     
         if overall_success:
             await self.printer.writeLine("All checks finished succesfully")
@@ -376,6 +385,8 @@ if __name__ == "__main__":
                         help = "Disable the use of a terminology server all together.")
     parser.add_argument("--debug", action = "store_true",
                         help = "Display debugging information for when something goes wrong.")
+    parser.add_argument("--github", action = "store_true",
+                        help = "Add output in Github format.")
     args = parser.parse_args()
     if args.menu:
         args.enable_tx_proxy = True
@@ -395,7 +406,7 @@ if __name__ == "__main__":
     with open(CONFIG_FILE) as config_file:
         config = yaml.safe_load(config_file)
     file_collection = FileCollection(config, args.changed_only)
-    printer = Printer()
+    printer = Printer(args.github)
     executor = StepExecutor(config, file_collection, printer, args.enable_tx_proxy)
     executor.disableTerminology(args.no_tx)
     executor.setDebugging(args.debug)

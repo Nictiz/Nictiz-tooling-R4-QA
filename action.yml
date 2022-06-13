@@ -1,0 +1,15 @@
+name: 'Nictiz R4 QA'
+description: 'QA checks for Nictiz FHIR R4 resources'
+inputs:
+  steps:
+    description: 'The steps to perform'
+    required: false
+outputs:
+  steps:
+    description: "Information about the status of each step"
+runs:
+  using: "docker"
+  image: 'Dockerfile'
+  args:
+    - "--github"
+    - ${{ inputs.steps }}
