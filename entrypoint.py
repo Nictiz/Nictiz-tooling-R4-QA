@@ -401,6 +401,9 @@ if __name__ == "__main__":
     except KeyError:
         TX_MENU_PORT = 9001
     
+    if args.github and "GITHUB_WORKSPACE" in os.environ:
+        REPO_DIR = os.environ["GITHUB_WORKSPACE"]
+
     os.chdir(REPO_DIR)
 
     with open(CONFIG_FILE) as config_file:
