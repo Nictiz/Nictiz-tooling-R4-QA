@@ -12,4 +12,4 @@ runs:
   image: 'Dockerfile'
   args:
     - "--github"
-    - ${{ inputs.steps }}
+    - '${{ inputs.steps }}'

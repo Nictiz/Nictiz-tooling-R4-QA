@@ -417,8 +417,10 @@ if __name__ == "__main__":
     if args.enable_tx_proxy:
         mitmweb = subprocess.Popen(["mitmweb", "--web-iface", "0.0.0.0", "--web-port", TX_MENU_PORT, "-s", "/tools/CombinedTX/CombinedTX.py", "-q"])
 
-    if len(args.steps) > 0:
+    if len(args.steps) > 1:
         steps = args.steps
+    elif len(args.steps) == 1:
+        steps = [step.strip() for step in args.steps[0].split(",")]
     else:
         steps = executor.getSteps()
 
