@@ -375,8 +375,6 @@ if __name__ == "__main__":
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--menu", action = "store_true",
                         help = "Display a menu rather than running in batch mode.")
-    parser.add_argument("--steps", type = str, nargs = "*",
-                        help = "The steps to execute (make sure to quote them if they contain spaces). If absent, all steps will be executed.")
     parser.add_argument("--changed-only", action = "store_true",
                         help = "Only validate changed files rather than all files (compared to the main branch).")
     group.add_argument("--enable-tx-proxy", action = "store_true",
@@ -387,6 +385,8 @@ if __name__ == "__main__":
                         help = "Display debugging information for when something goes wrong.")
     parser.add_argument("--github", action = "store_true",
                         help = "Add output in Github format.")
+    parser.add_argument("steps", type = str, nargs = "*", metavar = "step",
+                        help = "The steps to execute (make sure to quote them if they contain spaces). If absent, all steps will be executed.")
     args = parser.parse_args()
     if args.menu:
         args.enable_tx_proxy = True
@@ -417,11 +417,11 @@ if __name__ == "__main__":
     if args.enable_tx_proxy:
         mitmweb = subprocess.Popen(["mitmweb", "--web-iface", "0.0.0.0", "--web-port", TX_MENU_PORT, "-s", "/tools/CombinedTX/CombinedTX.py", "-q"])
 
-    if args.steps != None:
+    if len(args.steps) > 0:
         steps = args.steps
     else:
         steps = executor.getSteps()
-    
+
     if args.menu:
         menu = QAServer(executor)
         menu.run()
