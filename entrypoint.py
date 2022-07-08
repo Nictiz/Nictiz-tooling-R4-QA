@@ -49,6 +49,7 @@ class Printer:
     def __init__(self, write_github = False):
         self.socket = None
         self.write_github = write_github
+        os.environ["write_github"] = "1" if write_github else "0"
     
     def setSocket(self, socket):
         ''' Set a web socket to send the output to. '''
@@ -78,6 +79,14 @@ class Printer:
         """ Set an output value when executed on Github. """
         if self.write_github:
             print(f"::set-output name={key}::{value}")
+
+    def startGithubGroup(self, title):
+        if self.write_github:
+            print(f"::group::{title}")
+    
+    def endGithubGroup(self):
+        if self.write_github:
+            print("::endgroup::")
 
     def _ansiToHTML(self, match_obj):
         ''' Helper method to rewrite an ASNI color code to a HTML style tag. '''
@@ -236,8 +245,13 @@ class StepExecutor:
             "-profile", profile] + tx_opt + [
             "-output", out_file[1]] + files
         
-        suppress_output = False if self.debug else True
+        self.printer.startGithubGroup("Run validator")
+        if (not self.debug) or self.printer.write_github:
+            suppress_output = False
+        else:
+            suppress_output = True
         result_validator = await self._popen(command, suppress_output=suppress_output)
+        self.printer.endGithubGroup()
         
         success = False
         if result_validator == 0:
