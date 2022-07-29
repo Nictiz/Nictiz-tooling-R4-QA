@@ -387,22 +387,24 @@ class QAServer:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description = "Perform QA on FHIR materials")
     group = parser.add_mutually_exclusive_group()
-    group.add_argument("--menu", action = "store_true",
-                        help = "Display a menu rather than running in batch mode.")
+    group.add_argument("--batch", action = "store_true",
+                        help = "Run in batch mode rather then starting a web server to control the process.")
     parser.add_argument("--changed-only", action = "store_true",
                         help = "Only validate changed files rather than all files (compared to the main branch).")
     group.add_argument("--enable-tx-proxy", action = "store_true",
-                        help = "Enable the use of the terminology server proxy. This is needed to use the Nationale Terminologieserver or to inspect the traffic with the terminology server. This is automatically enabled when running in menu mode.")
+                        help = "Enable the use of the terminology server proxy. This is needed to use the Nationale Terminologieserver or to inspect the traffic with the terminology server. This is automatically enabled when running in interactive mode.")
     parser.add_argument("--no-tx", action = "store_true",
                         help = "Disable the use of a terminology server all together.")
     parser.add_argument("--debug", action = "store_true",
                         help = "Display debugging information for when something goes wrong.")
     parser.add_argument("--github", action = "store_true",
-                        help = "Add output in Github format.")
+                        help = "Add output in Github format. Implies --batch.")
     parser.add_argument("steps", type = str, nargs = "*", metavar = "step",
                         help = "The steps to execute (make sure to quote them if they contain spaces). If absent, all steps will be executed.")
     args = parser.parse_args()
-    if args.menu:
+    if args.github:
+        args.batch = True
+    if not args.batch:
         args.enable_tx_proxy = True
 
     try:
@@ -438,13 +440,13 @@ if __name__ == "__main__":
     else:
         steps = executor.getSteps()
 
-    if args.menu:
-        menu = QAServer(executor)
-        menu.run()
-    else:
+    if args.batch:
         result = asyncio.run(executor.execute(*steps))
         if not result:
             sys.exit(1)
+    else:
+        server = QAServer(executor)
+        server.run()
 
     if args.enable_tx_proxy:
         mitmweb.terminate()
