@@ -217,6 +217,8 @@ class StepExecutor:
                     success = await self._runValidator(step["profile"], files)
                 elif "script" in step:
                     success = await self._runExternalCommand(step["script"], files)
+                else:
+                    success = await self._runValidator(None, files)
                 overall_success &= success
                 self.printer.writeGithubOutput(f"step[{step_name}][result]", "success" if success else "failure")
     
@@ -239,10 +241,13 @@ class StepExecutor:
         for ig in self.igs:
             igs += ["-ig", ig]
 
+        if profile is not None:
+            profile_flag = ["-profile", profile]
+        else:
+            profile_flag = []
         command = [
             "java", "-jar", "/tools/validator/validator.jar",
-            '-version', "4.0.1"] + igs + ["-recurse",
-            "-profile", profile] + tx_opt + [
+            '-version', "4.0.1"] + igs + ["-recurse"] + profile_flag + tx_opt + [
             "-output", out_file[1]] + files
         
         self.printer.startGithubGroup("Run validator")

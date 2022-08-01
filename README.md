@@ -39,7 +39,12 @@ Lastly, the tool offers an environment for custom scripts, which can make use of
 To use these tools from a repository, a file called `qa.yaml` needs to be placed on the root level of the repository. This file describes the checks that can be performed on the various parts of the repo. This is a two-step process:
 
 1. First the different kind of files (like profiles, extensions, ValueSets, etc.) in the repo need to be mapped to named patterns. This is done using the "patterns" section. Each entry in this section is the name of the pattern, followed by one or more file name patterns using wildcards. Files are substracted from a pattern if they are already defined in a previous pattern. This allows to define patterns for the "rest of the files".
-2. Then, using these patterns, the steps that may be performed as part of the tool chain need to be described. This is done using the "steps" section. Each entry in this section should be a unique name, with the keys "patterns", "description" (optional) and either "profile" or "script". The "patterns" refers to one or more patterns defined above and the description is just that. If "profile" is defined, it should be the canonical URL of a FHIR profile and the step involves checking all files in the supplied patterns against that profile. If "script" is defined, it should be the path to a custom script within the repository, in unix notation (see the section on extending below).
+2. Then, using these patterns, the steps that may be performed as part of the tool chain need to be described. This is done using the "steps" section. Each entry in this section should be a unique name with the following keys:
+  * "patterns": one or more of the defined patterns that will be used in the check.
+  * "description" (optional): A description of the check.
+  * "profile" (optional): If present, this should be the canonical URL of a FHIR profile to check the files in the pattern against.
+  * "script" (optional): The path to a custom script file somewhere in the repository, in Unix path notation (see the section on extending below).
+  If neither "profile" or "script" is present, the action will validate the files defined by the pattern against the known IG(s).
 
 In addition, the qa.yaml file recognizes the following keys:
 
