@@ -1,0 +1,11 @@
+{
+    "status": "active",
+    "id": [
+      "FhirServer"
+    ],
+    "name": "Combined Proxy TX server Conformance Statement",
+    "resourceType": "TerminologyCapabilities",
+    "description": "Conformance Statement for the combined terminology capabilities",
+    "url": "http://fhir.healthintersections.com.au/open/metadata",
+    "codeSystem": ""
+  }

@@ -188,8 +188,8 @@ class CombinedTX:
         if fhir_version == 3:
             fixture = open(os.path.join(self._fixture_path, "CapabilityStatement-v3.xml")).read()
         elif fhir_version == 4:
-            fixture = open(os.path.join(self._fixture_path, "CapabilityStatement-v4.xml")).read()
-        return http.HTTPResponse.make(200, fixture, {"Content-Type": "application/fhir+xml"})
+            fixture = open(os.path.join(self._fixture_path, "CapabilityStatement-v4.json")).read()
+        return http.HTTPResponse.make(200, fixture, {"Content-Type": "application/fhir+json"})
 
     def _refreshCodeSystems(self, fhir_version):
         ctx.log.info("Refreshing list of code systems")
@@ -232,9 +232,9 @@ class CombinedTX:
         elif fhir_version == 4:
             # Create a TerminologyCapabilities instance with the CodeSystems
             ctx.log.info("Creating combined TerminologyCapabilities")
-            fixture = open(os.path.join(self._fixture_path, "TerminologyCapabilities.xml")).read()
-            fixture = fixture.replace("<codeSystem/>", '<codeSystem><uri value="' + '"/></codeSystem><codeSystem><uri value="'.join(self.codesystems_nts.union(self.codesystems_dtx)) + '"/></codeSystem>')
-            return http.HTTPResponse.make(200, fixture.encode("UTF-8"), {"Content-Type": "application/fhir+xml"})
+            fixture = open(os.path.join(self._fixture_path, "TerminologyCapabilities.json")).read()
+            fixture = fixture.replace('"codeSystem": ""', '"codeSystem": [{"uri": "' + '"},{"uri": "'.join(self.codesystems_nts.union(self.codesystems_dtx)) + '"}]')
+            return http.HTTPResponse.make(200, fixture.encode("UTF-8"), {"Content-Type": "application/fhir+json"})
 
     def _createFailureResponse(self, response_code, diagnostics, code = "processing", severity = "fatal"):
         """ Create a FHIR style failure response using an OperationOutcome. """

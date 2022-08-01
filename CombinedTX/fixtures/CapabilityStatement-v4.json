@@ -1,0 +1,56 @@
+{
+    "id": "FhirServer",
+    "fhirVersion": "4.0.1",
+    "meta": {
+      "tag": [
+        {
+          "code": "SUBSETTED",
+          "display": "Subsetted",
+          "system": "http://hl7.org/fhir/v3/ObservationValue"
+        }
+      ]
+    },
+    "instantiates": [
+      "http://hl7.org/fhir/Conformance/terminology-server"
+    ],
+    "format": [
+      "application/fhir+xml"
+    ],
+    "name": "Combined Proxy TX server Conformance Statement",
+    "kind": "instance",
+    "rest": [
+      {
+        "security": {
+          "cors": true
+        },
+        "mode": "server",
+        "operation": [
+          {
+            "name": "lookup",
+            "definition": "http://hl7.org/fhir/OperationDefinition/ValueSet-lookup"
+          },
+          {
+            "name": "validate-code",
+            "definition": "http://hl7.org/fhir/OperationDefinition/Resource-validate"
+          },
+          {
+            "name": "translate",
+            "definition": "http://hl7.org/fhir/OperationDefinition/ConceptMap-translate"
+          },
+          {
+            "name": "closure",
+            "definition": "http://hl7.org/fhir/OperationDefinition/ConceptMap-closure"
+          },
+          {
+            "name": "versions",
+            "definition": "/OperationDefinition/fso-versions"
+          }
+        ]
+      }
+    ],
+    "resourceType": "CapabilityStatement",
+    "status": "active",
+    "software": {
+      "name": "CombinedTX"
+    }
+  }
