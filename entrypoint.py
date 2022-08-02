@@ -152,7 +152,7 @@ class FileCollection(dict):
                             combined.append(file_name)
 
 class StepExecutor:
-    def __init__(self, config, file_collection, printer, use_tx_proxy):
+    def __init__(self, config, file_collection, printer, use_tx_proxy, fail_at):
         if "steps" in config:
             self.steps = config["steps"]
         else:
@@ -160,6 +160,7 @@ class StepExecutor:
 
         self.tx_disabled       = False
         self.use_tx_proxy      = use_tx_proxy
+        self.fail_at           = fail_at
         self.file_collection   = file_collection
         self.printer           = printer
 
@@ -192,6 +193,7 @@ class StepExecutor:
     async def execute(self, *step_names):
         os.environ["debug"] = "1" if self.debug else "0"
         os.environ["changed_only"] = "1" if self.file_collection.changed_only else "0"
+        os.environ["fail_at"] = "1" if self.fail_at else "0"
         self.file_collection.resolve()
     
         overall_success = True
@@ -260,7 +262,7 @@ class StepExecutor:
         
         success = False
         if result_validator == 0:
-            command = ["python3", "/tools/hl7-fhir-validator-action/analyze_results.py",  "--colorize", "--fail-at", "error"]
+            command = ["python3", "/tools/hl7-fhir-validator-action/analyze_results.py",  "--colorize", "--fail-at", self.fail_at]
             if self.ignored_issues:
                 command += ["--ignored-issues", self.ignored_issues]
             command += [out_file[1]]
@@ -410,6 +412,8 @@ if __name__ == "__main__":
                         help = "Enable the use of the terminology server proxy. This is needed to use the Nationale Terminologieserver or to inspect the traffic with the terminology server. This is automatically enabled when running in interactive mode.")
     parser.add_argument("--no-tx", type = __interpretStringAsBool, nargs = '?', const = True, default = False, metavar = 'boolean',
                         help = "Disable the use of a terminology server all together.")
+    parser.add_argument("--fail-at", choices = ["fatal", "error", "warning"], default = "error",
+                        help = "The test fails when an issue with this gravity is encountered.")
     parser.add_argument("--debug", type = __interpretStringAsBool, nargs = '?', const = True, default = False, metavar = 'boolean',
                         help = "Display debugging information for when something goes wrong.")
     parser.add_argument("--github", type = __interpretStringAsBool, nargs = '?', const = True, default = False, metavar = 'boolean',
@@ -441,7 +445,7 @@ if __name__ == "__main__":
         config = yaml.safe_load(config_file)
     file_collection = FileCollection(config, args.changed_only)
     printer = Printer(args.github)
-    executor = StepExecutor(config, file_collection, printer, args.enable_tx_proxy)
+    executor = StepExecutor(config, file_collection, printer, args.enable_tx_proxy, args.fail_at)
     executor.disableTerminology(args.no_tx)
     executor.setDebugging(args.debug)
    

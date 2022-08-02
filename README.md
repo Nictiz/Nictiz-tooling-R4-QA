@@ -167,6 +167,7 @@ Scripts can reside anywhere in the repository and are interpreted as standard Li
   * `debug`: flag to define if the tools are run in debug mode ("1" is true and "0" is false)
   * `changed_only`: flag to determine if we need to check changed files only ("1" is true and "0" is false)
   * `write_github`: check to determine if we're writing output as part of a Github workflow ("1" is true and "0" is false)
+  * `fail_at`: the issue level at which the check should be considered failed. The possible value are "fatal", "error" or "warning".
 * Shell scripts are sensitive to line endings (that is, they MUST be in Unix format for them to work!). It is not guaranteed that everyone using the repository will have git configured to respect the line endings, so it is advised to force Unif format for shell scripts. To do this, create a file called `.gitattributes` in the directory where the shell scripts resided, containing the following line:
 ```
 *.sh	text eol=lf

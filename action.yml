@@ -1,6 +1,10 @@
 name: 'Nictiz R4 QA'
 description: 'QA checks for Nictiz FHIR R4 resources'
 inputs:
+  fail-at:
+    description: 'The test will fail when an issue of this level is detected. Options are "fatal", "error" and "warning".'
+    required: false
+    default: 'error'
   changed-only:
     description: 'Indicates whether only changed files (compared to the main branch) should be checked'
     required: false
