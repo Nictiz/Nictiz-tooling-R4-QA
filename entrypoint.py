@@ -388,21 +388,31 @@ class QAServer:
         result = await executor.execute(*steps)
         status = "success" if result else "failure"
         await self.ws.send_json({"result": status})
-           
+
 if __name__ == "__main__":
+    def __interpretStringAsBool(value):
+        if isinstance(value, bool):
+            return value
+        if value.lower() in ('yes', 'true', 't', 'y', '1'):
+            return True
+        elif value.lower() in ('no', 'false', 'f', 'n', '0'):
+            return False
+        else:
+            raise argparse.ArgumentTypeError('Boolean value expected.')
+
     parser = argparse.ArgumentParser(description = "Perform QA on FHIR materials")
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--batch", action = "store_true",
                         help = "Run in batch mode rather then starting a web server to control the process.")
-    parser.add_argument("--changed-only", action = "store_true",
+    parser.add_argument("--changed-only", type = __interpretStringAsBool, nargs = '?', const = True, default = False, metavar = 'boolean',
                         help = "Only validate changed files rather than all files (compared to the main branch).")
-    group.add_argument("--enable-tx-proxy", action = "store_true",
+    group.add_argument("--enable-tx-proxy", type = __interpretStringAsBool, nargs = '?', const = True, default = False, metavar = 'boolean',
                         help = "Enable the use of the terminology server proxy. This is needed to use the Nationale Terminologieserver or to inspect the traffic with the terminology server. This is automatically enabled when running in interactive mode.")
-    parser.add_argument("--no-tx", action = "store_true",
+    parser.add_argument("--no-tx", type = __interpretStringAsBool, nargs = '?', const = True, default = False, metavar = 'boolean',
                         help = "Disable the use of a terminology server all together.")
-    parser.add_argument("--debug", action = "store_true",
+    parser.add_argument("--debug", type = __interpretStringAsBool, nargs = '?', const = True, default = False, metavar = 'boolean',
                         help = "Display debugging information for when something goes wrong.")
-    parser.add_argument("--github", action = "store_true",
+    parser.add_argument("--github", type = __interpretStringAsBool, nargs = '?', const = True, default = False, metavar = 'boolean',
                         help = "Add output in Github format. Implies --batch.")
     parser.add_argument("steps", type = str, nargs = "*", metavar = "step",
                         help = "The steps to execute (make sure to quote them if they contain spaces). If absent, all steps will be executed.")

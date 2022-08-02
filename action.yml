@@ -1,6 +1,14 @@
 name: 'Nictiz R4 QA'
 description: 'QA checks for Nictiz FHIR R4 resources'
 inputs:
+  changed-only:
+    description: 'Indicates whether only changed files (compared to the main branch) should be checked'
+    required: false
+    default: false
+  no-tx:
+    description: 'Disable terminology checking'
+    required: false
+    default: false
   steps:
     description: 'The steps to perform'
     required: false
@@ -11,5 +19,7 @@ runs:
   using: "docker"
   image: 'Dockerfile'
   args:
-    - "--github"
+    - --github
+    - --changed-only=${{ inputs.changed-only}}
+    - --no-tx=${{ inputs.no-tx }}
     - '${{ inputs.steps }}'
