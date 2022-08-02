@@ -440,7 +440,7 @@ if __name__ == "__main__":
 
     if len(args.steps) > 1:
         steps = args.steps
-    elif len(args.steps) == 1:
+    elif len(args.steps) == 1 and args.steps[0].strip() != "":
         steps = [step.strip() for step in args.steps[0].split(",")]
     else:
         steps = executor.getSteps()
