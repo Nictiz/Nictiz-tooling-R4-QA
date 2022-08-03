@@ -43,7 +43,7 @@ To use these tools from a repository, a file called `qa.yaml` needs to be placed
   * "patterns": one or more of the defined patterns that will be used in the check.
   * "description" (optional): A description of the check.
   * "profile" (optional): If present, this should be the canonical URL of a FHIR profile to check the files in the pattern against.
-  * "script" (optional): The path to a custom script file somewhere in the repository, in Unix path notation (see the section on extending below).
+  * "script" (optional): The name of a custom script file in the "script dir" directory (see the section on extending below).
   If neither "profile" or "script" is present, the action will validate the files defined by the pattern against the known IG(s).
 
 In addition, the qa.yaml file recognizes the following keys:
@@ -51,6 +51,7 @@ In addition, the qa.yaml file recognizes the following keys:
 - "main branch": The name of the main production branch of this repository. This is needed when the tools need to inspect only the resources that have been changed/added compared to the main branch.
 - "ignored issues": The path to a file describing the reported issues that should be ignored. See the section on "Silencing issues" for more information.
 - "igs": A list of directories that should be considered part of the ig when running the validator.
+- "script dir": A path to the directory containing custom scripts, relative to the root of the repository, in Unix notation.
 
 For example, a `qa.yaml` file might look like this:
 
@@ -162,16 +163,14 @@ Scripts can reside anywhere in the repository and are interpreted as standard Li
 * The following environment variables are available:
   * `tools_dir`: The base dir where all local tools are stored, like the HL7 validator or its output wrapper.
   * `work_dir`: The repository directory, or rather, a one-time copy of the repository directory. The repository itself is read-only so there's no change of destroying any data. A fresh copy is made each time the tool _chain_ is run. 
+  * `script_dir`: The dir that hosts the (copy of the) custom scripts during execution. See the remark below.
   * `tx_proxy`: the address of the terminology server proxy
   * `tx_server`: the address of the terminology server
   * `debug`: flag to define if the tools are run in debug mode ("1" is true and "0" is false)
   * `changed_only`: flag to determine if we need to check changed files only ("1" is true and "0" is false)
   * `write_github`: check to determine if we're writing output as part of a Github workflow ("1" is true and "0" is false)
   * `fail_at`: the issue level at which the check should be considered failed. The possible value are "fatal", "error" or "warning".
-* Shell scripts are sensitive to line endings (that is, they MUST be in Unix format for them to work!). It is not guaranteed that everyone using the repository will have git configured to respect the line endings, so it is advised to force Unif format for shell scripts. To do this, create a file called `.gitattributes` in the directory where the shell scripts resided, containing the following line:
-```
-*.sh	text eol=lf
-```
+* Shell scripts are sensitive to line endings (that is, they MUST be in Unix format for them to work) and file attributes, which do not always carry over to git repositories on Windows. For this reason, the scripts are copied and normalized to `script_dir` before being executed.
 
 ### Installing additional software
 

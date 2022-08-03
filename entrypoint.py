@@ -7,8 +7,11 @@ import asyncio
 import glob
 import mimetypes
 import os
+import pathlib
 import re
 import requests
+import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -16,6 +19,7 @@ import yaml
 
 REPO_DIR    = "/repo"
 TOOLS_DIR   = "/tools"
+SCRIPT_DIR  = "/scripts"
 TX_PROXY    = "127.0.0.1:8080"
 TX_SERVER   = "http://v4.combined.tx"
 CONFIG_FILE = "qa.yaml"
@@ -175,9 +179,14 @@ class StepExecutor:
 
         self.debug = False
 
+        self.script_dir = None
+        if "script dir" in config:
+            self.script_dir = config["script dir"]
+
         # Export the variables for external scripts to use
         os.environ["tools_dir"]  = TOOLS_DIR
         os.environ["work_dir"]   = REPO_DIR
+        os.environ["script_dir"] = SCRIPT_DIR
         os.environ["tx_proxy"]   = TX_PROXY
         os.environ["tx_server"]  = TX_SERVER
     
@@ -194,6 +203,7 @@ class StepExecutor:
         os.environ["debug"] = "1" if self.debug else "0"
         os.environ["changed_only"] = "1" if self.file_collection.changed_only else "0"
         os.environ["fail_at"] = "1" if self.fail_at else "0"
+        self._copyScripts()
         self.file_collection.resolve()
     
         overall_success = True
@@ -230,6 +240,23 @@ class StepExecutor:
             await self.printer.writeLine("Not all checks finished successfully")
         
         return overall_success
+
+    def _copyScripts(self):
+        """ Create a fresh copy of the scripts dir so that script files have their line endings normalized and have
+            the proper permissions for executing. """
+        shutil.rmtree(SCRIPT_DIR)
+        os.mkdir(SCRIPT_DIR)
+        if (self.script_dir):
+            curr_dir = os.getcwd()
+            os.chdir(os.path.join(REPO_DIR, self.script_dir))
+            for file_name in glob.glob("*", recursive = False):
+                with open(file_name, "rt") as src_file:
+                    dst_path = os.path.join(SCRIPT_DIR, file_name)
+                    with open(dst_path, "wt") as dest_file:
+                        for line in src_file.readlines():
+                            dest_file.write(line)
+                    os.chmod(dst_path, stat.S_IRUSR | stat.S_IXUSR)
+            os.chdir(curr_dir)
 
     async def _runValidator(self, profile, files):
         out_file = tempfile.mkstemp(".xml")
@@ -276,7 +303,10 @@ class StepExecutor:
         return success 
   
     async def _runExternalCommand(self, command, files):
-        result = await self._popen(command + " " + " ".join(files), shell = True)
+        if not self.script_dir:
+            await self.printer.writeLine("'script dir' is not set in qa.yaml!")
+            return False
+        result = await self._popen(SCRIPT_DIR + "/" + command + " " + " ".join(files), shell = True)
         return result == 0
 
     async def _popen(self, command, shell = False, suppress_output = False):

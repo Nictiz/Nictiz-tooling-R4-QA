@@ -15,6 +15,7 @@ RUN apt-get -y install mitmproxy
 
 RUN mkdir /tools
 RUN mkdir /input
+RUN mkdir /scripts
 
 RUN mkdir tools/validator
 RUN wget -nv https://github.com/hapifhir/org.hl7.fhir.core/releases/latest/download/validator_cli.jar -O /tools/validator/validator.jar
