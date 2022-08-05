@@ -5,7 +5,8 @@ RUN apt-get update && apt-get -y upgrade
 RUN apt-get -y install wget
 RUN apt-get -y install openjdk-11-jre-headless
 RUN apt-get -y install git
-RUN apt-get -y install python3 python3-yaml python3-requests python3-aiohttp
+RUN apt-get -y install python3 python3-pip python3-yaml python3-requests python3-aiohttp
+RUN pip3 install jsonpath-python
 
 # Needed for setting tzdata, which is a dependency down the line
 RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections

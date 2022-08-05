@@ -1,3 +1,5 @@
+import json
+from jsonpath import JSONPath
 import os
 import os.path
 import re
@@ -67,12 +69,10 @@ class CombinedTX:
             if flow.request.path.endswith(self.PATH_VALIDATE):
                 # If the system being validated is not present on the NTS but only on the default TX, route the request 
                 # to the default TX
-                tree = ET.fromstring(flow.request.content.decode("UTF-8"))
-                system = (
-                    tree.findall("./f:parameter/f:name[@value='coding']../f:valueCoding/f:system", self.FHIR_NAMESPACE) +
-                    tree.findall("./f:parameter/f:name[@value='codeableConcept']../f:valueCodeableConcept/f:coding/f:system", self.FHIR_NAMESPACE) 
-                )[0].attrib["value"]
-                
+                tree = json.loads(flow.request.content.decode("UTF-8"))
+                system = JSONPath("$..valueCoding.system").parse(tree) + JSONPath("$..valueCodeableConcept.system").parse(tree)
+                system = system[0]
+               
                 if len(self.codesystems_dtx) == 0:
                     refreshed = self._refreshCodeSystems(fhir_version)
                     if refreshed != True:
@@ -135,7 +135,7 @@ class CombinedTX:
             response = self._makeNTSRequest(flow.request.path, fhir_version, body = flow.request.content)
             if response != False:
                 if response.status_code == requests.codes.ok:
-                    flow.response = http.HTTPResponse.make(200, response.content, {"Content-Type": "application/fhir+xml"})
+                    flow.response = http.HTTPResponse.make(200, response.content, {"Content-Type": "application/fhir+json"})
                 else:
                     headers = [(key.encode("UTF-8"), response.headers[key].encode("UTF-8")) for key in response.headers]
                     flow.response = http.HTTPResponse.make(response.status_code, response.content, headers)
@@ -152,36 +152,37 @@ class CombinedTX:
             # again to see if it will validate there. Note that this doesn't work for batched requests.
             if flow.response.status_code == 200 and flow.request.path.endswith(self.PATH_VALIDATE):
 
-                tree = ET.fromstring(flow.response.content.decode("UTF-8"))
+                tree = json.loads(flow.response.content.decode("UTF-8"))
 
                 # The result of the operation                
-                result = tree.findall("./f:parameter/f:name[@value='result']../f:valueBoolean", self.FHIR_NAMESPACE)[0].attrib["value"]
-                
-                # If the display is deemed incorrect, the result is still true but a message will be appended, which 
-                # we'll have to analyze
+                result          = False
                 invalid_display = False
-                for message in tree.findall("./f:parameter/f:name[@value='message']../f:valueString", self.FHIR_NAMESPACE):
-                    match = re.match('The code ([\\w-]+) exists in the CodeSystem, but the display "(.*)" is incorrect', message.attrib["value"])
-                    if match:
-                        invalid_display = True
-                        ctx.log.info((f"Retrying display check for code {match.group(1)} (display; '{match.group(2)}') to default TX"))
-                        break
+                for param in JSONPath("$.parameter").parse(tree)[0]:
+                    if param['name'] == 'result':
+                        result = param['valueBoolean']
+                    elif param['name'] == 'message':
+                        # If the display is deemed incorrect, the result is still true but a message will be appended, which 
+                        # we'll have to analyze
+                        match = re.match('The code ([\\w-]+) exists in the CodeSystem, but the display "(.*)" is incorrect', param['valueString'])
+                        if match:
+                            invalid_display = True
+                            ctx.log.info((f"Retrying display check for code {match.group(1)} (display; '{match.group(2)}') to default TX"))
 
-                if result == "false" or invalid_display:
+                if result == False or invalid_display:
                     # Send a request to the default TX
                     headers = {
-                        "Content-Type": "application/fhir+xml; fhirVersion=4.0",
-                        "Accept": "application/fhir+xml; fhirVersion=4.0"
+                        "Content-Type": "application/fhir+json; fhirVersion=4.0",
+                        "Accept": "application/fhir+json; fhirVersion=4.0"
                     }
                     response = requests.post(self.DTX_HOST + self.DTX_PATH_V4 + flow.request.path, headers = headers, data = flow.request.content)
 
                     if response != False and response.status_code == requests.codes.ok:
                         # The result of the operation                
-                        tree = ET.fromstring(response.content.decode("UTF-8"))
-                        result = tree.findall("./f:parameter/f:name[@value='result']../f:valueBoolean", self.FHIR_NAMESPACE)[0].attrib["value"]
-                        if result == "true":
-                            flow.response.content = response.content
-                            flow.response.headers["TX-Origin"] = self.DTX_HOST
+                        tree = json.loads(response.content.decode("UTF-8"))
+                        for param in JSONPath("$.parameter").parse(tree)[0]:
+                            if param['name'] == 'result' and param['valueBoolean']:
+                                flow.response.content = response.content
+                                flow.response.headers["TX-Origin"] = self.DTX_HOST
 
     def _getMetadataSummary(self, fhir_version):
         """ Return a response to /metadata?_summary=true """
@@ -246,7 +247,7 @@ class CombinedTX:
 
         return http.HTTPResponse.make(response_code, operation_outcome.encode("UTF-8"), {"Content-Type": "application/fhir+xml"})
 
-    def _makeNTSRequest(self, path, fhir_version, body = None, accept_json = False):
+    def _makeNTSRequest(self, path, fhir_version, body = None, accept_json = True):
         """ Make a request to the NTS, using the proper authorization.
             Return the response as a requests object, or False if the NTS cannot be used. """
 
@@ -259,7 +260,7 @@ class CombinedTX:
         else:
             headers["Accept"] = f"application/fhir+xml; fhirVersion={fhir_version}.0"
         if body:
-            headers["Content-Type"] = f"application/fhir+xml; fhirVersion={fhir_version}.0"
+            headers["Content-Type"] = f"application/fhir+json; fhirVersion={fhir_version}.0"
 
         def request():
             headers["Authorization"] = "Bearer " + self._nts_token
