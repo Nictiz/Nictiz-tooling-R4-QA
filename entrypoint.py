@@ -101,7 +101,7 @@ class Printer:
         
         return f"</span><span style='color: {color}'>"
 class FileCollection(dict):
-    def __init__(self, config, changed_only = True):
+    def __init__(self, config, changed_only = True, on_github = False):
         if "patterns" in config:
             self.patterns = config["patterns"]
         else:
@@ -116,6 +116,9 @@ class FileCollection(dict):
             self.main_branch = "origin/main"
 
         self.changed_only = changed_only
+
+        if on_github:
+            subprocess.run(["git", "config", "--global", "--add", "safe.directory", os.getcwd()])
 
     def setChangedOnly(self, changed_only):
         self.changed_only = changed_only
@@ -473,7 +476,7 @@ if __name__ == "__main__":
 
     with open(CONFIG_FILE) as config_file:
         config = yaml.safe_load(config_file)
-    file_collection = FileCollection(config, args.changed_only)
+    file_collection = FileCollection(config, args.changed_only, args.github)
     printer = Printer(args.github)
     executor = StepExecutor(config, file_collection, printer, args.enable_tx_proxy, args.fail_at)
     executor.disableTerminology(args.no_tx)
