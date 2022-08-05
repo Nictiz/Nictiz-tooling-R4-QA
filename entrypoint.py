@@ -280,7 +280,7 @@ class StepExecutor:
             "-output", out_file[1]] + files
         
         self.printer.startGithubGroup("Run validator")
-        if (not self.debug) or self.printer.write_github:
+        if self.debug or self.printer.write_github:
             suppress_output = False
         else:
             suppress_output = True
