@@ -1,6 +1,6 @@
 # 20.04 is the last usable LTS release, as Firely Terminal currently requires a .Net Core version which is not
 # supported on Ubuntu 22.04
-FROM ubuntu:20.04
+FROM ubuntu:22.04
 RUN apt-get update && apt-get -y upgrade
 RUN apt-get -y install wget
 RUN apt-get -y install openjdk-11-jre-headless
