@@ -133,6 +133,7 @@ class FileCollection(dict):
             committed   = subprocess.run(["git", "diff", "--name-only", "--diff-filter=ACM", self.main_branch], capture_output = True)
             uncommitted = subprocess.run(["git", "ls-files", "--others"], capture_output = True)
             print(committed)
+            subprocess.run(["git", "branch"])
             if committed and uncommitted:
                 changed_files =  committed.stdout.decode("UTF-8").split("\n")
                 changed_files += uncommitted.stdout.decode("UTF-8").split("\n")
