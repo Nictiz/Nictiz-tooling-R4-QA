@@ -133,6 +133,7 @@ class FileCollection(dict):
             if committed and uncommitted:
                 changed_files =  committed.stdout.decode("UTF-8").split("\n")
                 changed_files += uncommitted.stdout.decode("UTF-8").split("\n")
+            print(changed_files)
         else:
             # Otherwise we need to keep track of the files that we already encountered
             combined = []
@@ -146,6 +147,7 @@ class FileCollection(dict):
             # Now add all files that match the pattern and that have not been seen before
             for pattern in patterns:
                 for file_name in glob.glob(pattern, recursive = True):
+                    print(file_name)
                     if self.changed_only:
                         if file_name in changed_files:
                             self[pattern_name].append(file_name)
