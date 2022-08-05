@@ -129,6 +129,7 @@ class FileCollection(dict):
             # If we're only interested in the files that are new or changed compared to the main branch, we first ask
             # git for a list of all these files, committed or not
             print(os.listdir())
+            suprocess.run(["git", "config", "--global", "--add safe.directory", os.getcwd()])
             committed   = subprocess.run(["git", "diff", "--name-only", "--diff-filter=ACM", self.main_branch], capture_output = True)
             uncommitted = subprocess.run(["git", "ls-files", "--others"], capture_output = True)
             print(committed)
