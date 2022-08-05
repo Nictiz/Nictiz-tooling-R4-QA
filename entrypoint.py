@@ -128,6 +128,7 @@ class FileCollection(dict):
         if self.changed_only:
             # If we're only interested in the files that are new or changed compared to the main branch, we first ask
             # git for a list of all these files, committed or not
+            print(os.listdir())
             committed   = subprocess.run(["git", "diff", "--name-only", "--diff-filter=ACM", self.main_branch], capture_output = True)
             uncommitted = subprocess.run(["git", "ls-files", "--others"], capture_output = True)
             print(committed)
@@ -475,6 +476,7 @@ if __name__ == "__main__":
 
     print(REPO_DIR)
     os.chdir(REPO_DIR)
+    print(os.listdir())
 
     with open(CONFIG_FILE) as config_file:
         config = yaml.safe_load(config_file)
