@@ -101,7 +101,7 @@ class Printer:
         
         return f"</span><span style='color: {color}'>"
 class FileCollection(dict):
-    def __init__(self, config, changed_only = True):
+    def __init__(self, config, changed_only = True, on_github = False):
         if "patterns" in config:
             self.patterns = config["patterns"]
         else:
@@ -117,6 +117,9 @@ class FileCollection(dict):
 
         self.changed_only = changed_only
 
+        if on_github:
+            subprocess.run(["git", "config", "--global", "--add", "safe.directory", os.getcwd()])
+
     def setChangedOnly(self, changed_only):
         self.changed_only = changed_only
         
@@ -128,16 +131,12 @@ class FileCollection(dict):
         if self.changed_only:
             # If we're only interested in the files that are new or changed compared to the main branch, we first ask
             # git for a list of all these files, committed or not
-            print(os.listdir())
-            subprocess.run(["git", "config", "--global", "--add", "safe.directory", os.getcwd()])
             committed   = subprocess.run(["git", "diff", "--name-only", "--diff-filter=ACM", self.main_branch], capture_output = True)
             uncommitted = subprocess.run(["git", "ls-files", "--others"], capture_output = True)
-            print(committed)
             subprocess.run(["git", "branch"])
             if committed and uncommitted:
                 changed_files =  committed.stdout.decode("UTF-8").split("\n")
                 changed_files += uncommitted.stdout.decode("UTF-8").split("\n")
-            print(changed_files)
         else:
             # Otherwise we need to keep track of the files that we already encountered
             combined = []
@@ -472,17 +471,14 @@ if __name__ == "__main__":
     except KeyError:
         TX_MENU_PORT = 9001
     
-    print(os.environ)
     if args.github and "GITHUB_WORKSPACE" in os.environ:
         REPO_DIR = os.environ["GITHUB_WORKSPACE"]
 
-    print(REPO_DIR)
     os.chdir(REPO_DIR)
-    print(os.listdir())
 
     with open(CONFIG_FILE) as config_file:
         config = yaml.safe_load(config_file)
-    file_collection = FileCollection(config, args.changed_only)
+    file_collection = FileCollection(config, args.changed_only, args.github)
     printer = Printer(args.github)
     executor = StepExecutor(config, file_collection, printer, args.enable_tx_proxy, args.fail_at)
     executor.disableTerminology(args.no_tx)
