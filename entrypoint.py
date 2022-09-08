@@ -190,8 +190,6 @@ class StepExecutor:
         os.environ["tools_dir"]  = TOOLS_DIR
         os.environ["work_dir"]   = REPO_DIR
         os.environ["script_dir"] = SCRIPT_DIR
-        os.environ["tx_proxy"]   = TX_PROXY
-        os.environ["tx_server"]  = TX_SERVER
     
     def getSteps(self):
         return self.steps.keys()
@@ -199,13 +197,21 @@ class StepExecutor:
     def setDebugging(self, debug):
         self.debug = debug
     
-    def disableTerminology(self, tx_disabled = False):
-        self.tx_disabled = tx_disabled
+    def setTerminologyOptions(self, disabled = False, use_proxy = False):
+        self.tx_disabled = disabled
+        self.use_tx_proxy= use_proxy
 
     async def execute(self, *step_names):
         os.environ["debug"] = "1" if self.debug else "0"
         os.environ["changed_only"] = "1" if self.file_collection.changed_only else "0"
         os.environ["fail_at"] = "1" if self.fail_at else "0"
+        if self.use_tx_proxy:
+            os.environ["tx_proxy"]   = TX_PROXY
+            os.environ["tx_server"]  = TX_SERVER
+        else:
+            os.unsetenv("tx_proxy")
+            os.unsetenv("tx_server")
+
         self._copyScripts()
         self.file_collection.resolve()
     
@@ -266,9 +272,9 @@ class StepExecutor:
         if self.tx_disabled:
             tx_opt = ["-tx", "n/a"]
         elif self.use_tx_proxy:
-            tx_opt = ["-proxy", TX_PROXY, "-tx", TX_SERVER]
+            tx_opt = ["-proxy", TX_PROXY, "-tx", TX_SERVER, "-sct", "nl"]
         else:
-            tx_opt = []
+            tx_opt = ["-sct", "nl"]
         igs = []
         for ig in self.igs:
             igs += ["-ig", ig]
@@ -394,9 +400,11 @@ class QAServer:
 
         if "terminology" in content:
             if content["terminology"] == "disabled":
-                self.executor.disableTerminology(True)
+                self.executor.setTerminologyOptions(disabled = True)
+            elif content["terminology"] == "default_tx":
+                self.executor.setTerminologyOptions(disabled = False, use_proxy = False)
             else:
-                self.executor.disableTerminology(False)
+                self.executor.setTerminologyOptions(disabled = False, use_proxy = True)
 
                 # Always set the supplied NTS credentials again for an execution, as the user might have removed them
                 # to check without the NTS
@@ -479,7 +487,7 @@ if __name__ == "__main__":
     file_collection = FileCollection(config, args.changed_only, args.github)
     printer = Printer(args.github)
     executor = StepExecutor(config, file_collection, printer, args.enable_tx_proxy, args.fail_at)
-    executor.disableTerminology(args.no_tx)
+    executor.setTerminologyOptions(disabled = args.no_tx)
     executor.setDebugging(args.debug)
    
     if args.enable_tx_proxy:
