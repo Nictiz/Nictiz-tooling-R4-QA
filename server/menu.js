@@ -13,7 +13,9 @@ websocket.addEventListener('message', function (event) {
     } else if ("result" in message) {
         setActive(true)
         let result_msg = document.createElement('p')
-        result_msg.innerText = message["result"]
+        result_msg.setAttribute("class", "result_msg")
+        console.log(`status: <span class='${message.result}'>${message.result}</span>`)
+        result_msg.insertAdjacentHTML("afterbegin", `status: <span class='${message.result}'>${message.result}</span>`)
         document.getElementById('runs').insertAdjacentElement("beforeend", result_msg)
     } else if ("status" in message && message["status"] == "running") {
         setActive(false)

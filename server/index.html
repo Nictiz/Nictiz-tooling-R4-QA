@@ -3,12 +3,34 @@
     <head>
         <title>Nictiz R4 QA</title>
         <style>
+            body {
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            }
+            
             .qa_output {
                 font-family: monospace;
                 background-color: black;
                 max-height: 400px;
                 overflow: scroll;
                 white-space: pre;
+            }
+
+            p.result_msg {
+                border: 1px dotted;
+                padding: 0.5em;
+                font-size: larger;
+            }
+
+            span.success {
+                color: white;
+                padding: 0.5ex;
+                background-color: green;
+            }
+
+            span.failure {
+                color: white;
+                padding: 0.5ex;
+                background-color: red;
             }
         </style>
     </head>
