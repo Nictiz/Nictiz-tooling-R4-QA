@@ -120,6 +120,7 @@ class CombinedTX:
             elif flow.request.path == self.PATH_RESET_NTS_CREDENTIALS:
                 # Special method for resetting NTS credentials. Payload should be application/x-www-form-urlencoded
                 # with keys "user" and "pass".
+                self._nts_token   = None
                 try:
                     content = urllib.parse.parse_qs(flow.request.content.decode("UTF-8"))
                     self._nts_user = content["user"][0]
@@ -275,7 +276,7 @@ class CombinedTX:
 
         if self._nts_token:
             response = request()
-            if response.status_code == 403:
+            if response.status_code in [401, 403]:
                 # NTS token is not valid. Let's try it again with a new one (just once so we don't get into an infinite loop).
                 self._refreshNTSToken()
                 response = request()
