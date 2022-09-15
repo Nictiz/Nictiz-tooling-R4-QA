@@ -38,7 +38,7 @@ function download(){
     var a = document.body.appendChild(
         document.createElement("a")
     );
-    a.download = "export.txt";
+    a.download = "export.html";
     a.href = "data:text/html," + document.getElementById("runs").getElementsByClassName("qa_output")[0].innerHTML;
     a.click();
 }
