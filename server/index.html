@@ -39,7 +39,7 @@ function download(){
         document.createElement("a")
     );
     a.download = "export.txt";
-    a.href = "data:text/plain," + document.getElementById("runs").innerHTML;
+    a.href = "data:text/plain," + document.getElementById("runs").getElementsByClassName("qa_output").innerHTML;
     a.click();
 }
         </script>
