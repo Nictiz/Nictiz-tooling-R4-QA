@@ -33,11 +33,22 @@
                 background-color: red;
             }
         </style>
+        <script type="text/javascript">
+function download(){
+    var a = document.body.appendChild(
+        document.createElement("a")
+    );
+    a.download = "export.txt";
+    a.href = "data:text/plain," + document.getElementById("runs").innerHTML;
+    a.click();
+}
+        </script>
     </head>
     <body>
         <h1>Nictiz R4 QA</h1>
         <div id="runs">
         </div>
+        <button onClick="download()">Download QA result</button>
         <form id="qa_form">
             <fieldset name="steps">
                 <legend>Perform steps:</legend>
