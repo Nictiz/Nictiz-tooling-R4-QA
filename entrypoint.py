@@ -82,7 +82,8 @@ class Printer:
     def writeGithubOutput(self, key, value):
         """ Set an output value when executed on Github. """
         if self.write_github:
-            print(f"::set-output name={key}::{value}")
+            with open(os.environ['GITHUB_OUTPUT'], 'w') as github_output:
+                github_output.write(f'{key}={value}')
 
     def startGithubGroup(self, title):
         if self.write_github:
