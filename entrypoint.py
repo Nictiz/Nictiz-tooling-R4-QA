@@ -300,6 +300,8 @@ class StepExecutor:
         success = False
         if result_validator in [0, 1]: # 0 is normal exit, 1 is an error, but also a validation error. So the exit code is not really usable. Let's just hope this works.
             command = ["python3", "/tools/hl7-fhir-validator-action/analyze_results.py",  "--colorize", "--fail-at", self.fail_at]
+            if printer.write_github:
+                command.append("--github")
             if self.ignored_issues:
                 command += ["--ignored-issues", self.ignored_issues]
             command += [out_file[1]]
