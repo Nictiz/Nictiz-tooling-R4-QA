@@ -22,7 +22,7 @@ RUN mkdir tools/validator
 RUN wget -nv https://github.com/hapifhir/org.hl7.fhir.core/releases/latest/download/validator_cli.jar -O /tools/validator/validator.jar
 RUN java -jar /tools/validator/validator.jar -version 4.0 -ig nictiz.fhir.nl.r4.profilingguidelines -tx 'n/a' | cat
 
-RUN git clone -b v0.22 --depth 1 https://github.com/pieter-edelman-nictiz/hl7-fhir-validator-action /tools/hl7-fhir-validator-action
+RUN git clone -b GithubOutput2 --depth 1 https://github.com/pieter-edelman-nictiz/hl7-fhir-validator-action /tools/hl7-fhir-validator-action
 
 COPY entrypoint.py /entrypoint.py
 COPY CombinedTX /tools/CombinedTX
