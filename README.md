@@ -24,7 +24,7 @@ Terminology checking is one of the most complex topics of profile validation. On
 
 ### Silencing issues
 
-False positives are an enevitable part of automated checks. This tool offers the option to suppress, in a very fine-grained matter, the errors and warnings that occur during the validation (both for the purpose of human inspection and automated checks).
+False positives are an inevitable part of automated checks. This tool offers the option to suppress, in a very fine-grained manner, the errors and warnings that occur during the validation (both for the purpose of human inspection and automated checks).
 
 These suppressed issue are described in a YAML file, which should be (reasonably) human-readable. The format is described here: This is described in [https://github.com/pieter-edelman-nictiz/hl7-fhir-validator-action#suppressing-messages]
 
@@ -46,7 +46,7 @@ To use these tools from a repository, a file called `qa.yaml` needs to be placed
   * "script" (optional): The name of a custom script file in the "script dir" directory (see the section on extending below).
   If neither "profile" or "script" is present, the action will validate the files defined by the pattern against the known IG(s).
 
-In addition, the qa.yaml file recognizes the following keys:
+In addition, the `qa.yaml` file recognizes the following keys:
 
 - "main branch": The name of the main production branch of this repository. This is needed when the tools need to inspect only the resources that have been changed/added compared to the main branch.
 - "ignored issues": The path to a file describing the reported issues that should be ignored. See the section on "Silencing issues" for more information.
