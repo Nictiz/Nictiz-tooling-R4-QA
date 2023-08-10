@@ -20,7 +20,6 @@ import yaml
 REPO_DIR    = "/repo"
 TOOLS_DIR   = "/tools"
 SCRIPT_DIR  = "/scripts"
-TX_PROXY    = "127.0.0.1:8080"
 TX_SERVER   = "http://v4.combined.tx"
 CONFIG_FILE = "qa.yaml"
 
@@ -160,14 +159,13 @@ class FileCollection(dict):
                             combined.append(file_name)
 
 class StepExecutor:
-    def __init__(self, config, file_collection, printer, use_tx_proxy, fail_at):
+    def __init__(self, config, file_collection, printer, fail_at):
         if "steps" in config:
             self.steps = config["steps"]
         else:
             self.steps = {}
 
         self.tx_disabled       = False
-        self.use_tx_proxy      = use_tx_proxy
         self.fail_at           = fail_at
         self.file_collection   = file_collection
         self.printer           = printer
@@ -198,21 +196,14 @@ class StepExecutor:
     def setDebugging(self, debug):
         self.debug = debug
     
-    def setTerminologyOptions(self, disabled = False, use_proxy = False, extensible_binding_warnings = False):
+    def setTerminologyOptions(self, disabled = False, extensible_binding_warnings = False):
         self.tx_disabled                 = disabled
-        self.use_tx_proxy                = use_proxy
         self.extensible_binding_warnings = extensible_binding_warnings
 
     async def execute(self, *step_names):
         os.environ["debug"] = "1" if self.debug else "0"
         os.environ["changed_only"] = "1" if self.file_collection.changed_only else "0"
         os.environ["fail_at"] = "1" if self.fail_at else "0"
-        if self.use_tx_proxy:
-            os.environ["tx_proxy"]   = TX_PROXY
-            os.environ["tx_server"]  = TX_SERVER
-        else:
-            os.unsetenv("tx_proxy")
-            os.unsetenv("tx_server")
 
         self._copyScripts()
         self.file_collection.resolve()
@@ -274,12 +265,9 @@ class StepExecutor:
         if self.tx_disabled:
             tx_opt = ["-tx", "n/a"]
         else:
-            tx_opt = []
-            if self.use_tx_proxy:
-                tx_opt = ["-proxy", TX_PROXY, "-tx", TX_SERVER]
             # We're opiniated about terminology checking. We want to allow Dutch display values and we don't consider
             # display issues errors.
-            tx_opt += ["-sct", "nl", "-language", "nl", "-display-issues-are-warnings"]
+            tx_opt = ["-sct", "nl", "-language", "nl", "-display-issues-are-warnings"]
             if not self.extensible_binding_warnings: # Our flag is the opposite of the default behaviour of the Validtor
                 tx_opt += ["-no-extensible-binding-warnings"]
         igs = []
@@ -386,7 +374,6 @@ class QAServer:
             # The menu HTML. We need to insert the steps that we know of in the static file that's loaded from disk.
             content_type = 'text/html'
 
-            content = content.replace('<a id="tx_proxy">', f'<a href="http://localhost:{TX_MENU_PORT}" target="_blank">')
             task_html = ""
             for step in self.executor.getSteps():
                 task_html += f"<input type='checkbox' name='step_{step}'/>"
@@ -411,19 +398,7 @@ class QAServer:
             if content["terminology"] == "disabled":
                 self.executor.setTerminologyOptions(disabled = True)
             elif content["terminology"] == "default_tx":
-                self.executor.setTerminologyOptions(disabled = False, use_proxy = False)
-            else:
-                self.executor.setTerminologyOptions(disabled = False, use_proxy = True)
-
-                # Always set the supplied NTS credentials again for an execution, as the user might have removed them
-                # to check without the NTS
-                nts_credentials = {
-                    "user": content["nts_user"],
-                    "pass": content["nts_pass"]
-                }
-                requests.post("http://v4.combined.tx/resetNTSCredentials",
-                    data = nts_credentials,
-                    proxies = {"http": TX_PROXY})
+                self.executor.setTerminologyOptions(disabled = False)
 
         self.executor.setTerminologyOptions(extensible_binding_warnings = ("extensible_binding_warnings" in content))
         self.executor.setDebugging("debug" in content)
@@ -456,8 +431,6 @@ if __name__ == "__main__":
                        help = "Run in batch mode rather then starting a web server to control the process.")
     parser.add_argument("--changed-only", type = __interpretStringAsBool, nargs = '?', const = True, default = False, metavar = 'boolean',
                         help = "Only validate changed files rather than all files (compared to the main branch).")
-    group.add_argument("--enable-tx-proxy", type = __interpretStringAsBool, nargs = '?', const = True, default = False, metavar = 'boolean',
-                        help = "Enable the use of the terminology server proxy. This is needed to use the Nationale Terminologieserver or to inspect the traffic with the terminology server. This is automatically enabled when running in interactive mode.")
     parser.add_argument("--no-tx", type = __interpretStringAsBool, nargs = '?', const = True, default = False, metavar = 'boolean',
                         help = "Disable the use of a terminology server all together.")
     parser.add_argument("--extensible-binding-warnings", type = __interpretStringAsBool, nargs = '?', const = True, default = False, metavar = 'boolean',
@@ -473,8 +446,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     if args.github:
         args.batch = True
-    if not args.batch:
-        args.enable_tx_proxy = True
 
     try:
         MENU_PORT = os.environ["MENU_PORT"]
@@ -495,13 +466,10 @@ if __name__ == "__main__":
         config = yaml.safe_load(config_file)
     file_collection = FileCollection(config, args.changed_only, args.github)
     printer = Printer(args.github)
-    executor = StepExecutor(config, file_collection, printer, args.enable_tx_proxy, args.fail_at)
+    executor = StepExecutor(config, file_collection, printer, args.fail_at)
     executor.setTerminologyOptions(disabled = args.no_tx, extensible_binding_warnings = args.extensible_binding_warnings)
     executor.setDebugging(args.debug)
    
-    #if args.enable_tx_proxy:
-    #    mitmweb = subprocess.Popen(["mitmweb", "--web-iface", "0.0.0.0", "--web-port", TX_MENU_PORT, "-s", "/tools/CombinedTX/CombinedTX.py", "-q"])
-
     if len(args.steps) > 1:
         steps = args.steps
     elif len(args.steps) == 1 and args.steps[0].strip() != "":
@@ -516,6 +484,3 @@ if __name__ == "__main__":
     else:
         server = QAServer(executor)
         server.run()
-
-    if args.enable_tx_proxy:
-        mitmweb.terminate()

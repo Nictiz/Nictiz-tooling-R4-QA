@@ -52,14 +52,8 @@
             </fieldset>
             <fieldset>
                 <legend>Terminology:</legend>
-                <input type="radio" name="terminology" id="default_tx" value="default_tx"/>
-                <label for="default_tx">Default terminology server (no proxy)</label><br />
-                <input type="radio" name="terminology" id="proxy" value="proxy"  checked="cheked"/>
-                <label for="proxy">Proxy server (<a id="tx_proxy">see interactions</a>). If NTS credentials are given, it will be used with the default server as backup.</label>
-                <label for="nts_user">NTS username:</label>
-                <input name="nts_user"/>
-                <label for="nts_user">NTS password:</label>
-                <input name="nts_pass" type="password"/><br />
+                <input type="radio" name="terminology" id="default_tx" value="default_tx" checked="checked"/>
+                <label for="default_tx">Default terminology server</label><br />
                 <input type="radio" name="terminology" id="disabled" value="disabled"/>
                 <label for="disabled">No terminology server</label><br />
                 <input type="checkbox" name="extensible_binding_warnings" id="extensible_binding_warnings"/>
