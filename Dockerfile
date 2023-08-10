@@ -2,6 +2,7 @@
 # supported on Ubuntu 22.04
 FROM alpine:3.18
 RUN apk upgrade
+RUN apk add bash
 RUN apk add wget
 RUN apk add openjdk11-jre-headless
 RUN apk add git
