@@ -198,9 +198,10 @@ class StepExecutor:
     def setDebugging(self, debug):
         self.debug = debug
     
-    def setTerminologyOptions(self, disabled = False, use_proxy = False):
-        self.tx_disabled = disabled
-        self.use_tx_proxy= use_proxy
+    def setTerminologyOptions(self, disabled = False, use_proxy = False, extensible_binding_warnings = False):
+        self.tx_disabled                 = disabled
+        self.use_tx_proxy                = use_proxy
+        self.extensible_binding_warnings = extensible_binding_warnings
 
     async def execute(self, *step_names):
         os.environ["debug"] = "1" if self.debug else "0"
@@ -272,10 +273,15 @@ class StepExecutor:
         out_file = tempfile.mkstemp(".xml")
         if self.tx_disabled:
             tx_opt = ["-tx", "n/a"]
-        elif self.use_tx_proxy:
-            tx_opt = ["-proxy", TX_PROXY, "-tx", TX_SERVER, "-sct", "nl"]
         else:
-            tx_opt = ["-sct", "nl"]
+            tx_opt = []
+            if self.use_tx_proxy:
+                tx_opt = ["-proxy", TX_PROXY, "-tx", TX_SERVER]
+            # We're opiniated about terminology checking. We want to allow Dutch display values and we don't consider
+            # display issues errors.
+            tx_opt += ["-sct", "nl", "-language", "nl", "-display-issues-are-warnings"]
+            if not self.extensible_binding_warnings: # Our flag is the opposite of the default behaviour of the Validtor
+                tx_opt += ["-no-extensible-binding-warnings"]
         igs = []
         for ig in self.igs:
             igs += ["-ig", ig]
@@ -419,10 +425,8 @@ class QAServer:
                     data = nts_credentials,
                     proxies = {"http": TX_PROXY})
 
-        if "debug" in content:
-            self.executor.setDebugging(True)
-        else:
-            self.executor.setDebugging(False)
+        self.executor.setTerminologyOptions(extensible_binding_warnings = ("extensible_binding_warnings" in content))
+        self.executor.setDebugging("debug" in content)
         
         self.executor.printer.setSocket(self.ws)
         asyncio.create_task(self._executeAndReport(steps))
@@ -449,13 +453,15 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description = "Perform QA on FHIR materials")
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--batch", action = "store_true",
-                        help = "Run in batch mode rather then starting a web server to control the process.")
+                       help = "Run in batch mode rather then starting a web server to control the process.")
     parser.add_argument("--changed-only", type = __interpretStringAsBool, nargs = '?', const = True, default = False, metavar = 'boolean',
                         help = "Only validate changed files rather than all files (compared to the main branch).")
     group.add_argument("--enable-tx-proxy", type = __interpretStringAsBool, nargs = '?', const = True, default = False, metavar = 'boolean',
                         help = "Enable the use of the terminology server proxy. This is needed to use the Nationale Terminologieserver or to inspect the traffic with the terminology server. This is automatically enabled when running in interactive mode.")
     parser.add_argument("--no-tx", type = __interpretStringAsBool, nargs = '?', const = True, default = False, metavar = 'boolean',
                         help = "Disable the use of a terminology server all together.")
+    parser.add_argument("--extensible-binding-warnings", type = __interpretStringAsBool, nargs = '?', const = True, default = False, metavar = 'boolean',
+                        help = "Emit a warning for codes that are not in an extensible bound ValueSet.")
     parser.add_argument("--fail-at", choices = ["fatal", "error", "warning"], default = "error",
                         help = "The test fails when an issue with this gravity is encountered.")
     parser.add_argument("--debug", type = __interpretStringAsBool, nargs = '?', const = True, default = False, metavar = 'boolean',
@@ -490,7 +496,7 @@ if __name__ == "__main__":
     file_collection = FileCollection(config, args.changed_only, args.github)
     printer = Printer(args.github)
     executor = StepExecutor(config, file_collection, printer, args.enable_tx_proxy, args.fail_at)
-    executor.setTerminologyOptions(disabled = args.no_tx)
+    executor.setTerminologyOptions(disabled = args.no_tx, extensible_binding_warnings = args.extensible_binding_warnings)
     executor.setDebugging(args.debug)
    
     if args.enable_tx_proxy:

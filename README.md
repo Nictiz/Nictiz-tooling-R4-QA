@@ -8,7 +8,7 @@ To provide a consistent experience across platforms, these tools are packaged in
 
 At its heart, this tool allows an author of FHIR conformance resources to quickly create a set of automated checks on the files in the repository. The result can be used both for manual inspection as for automated workflows. _How_ this can be done is described in the next section; this section aims to summarize _what_ it does (and why).
 
-### Profile validation
+### Resource validation
 
 Although the tool can easily be extended with all kinds of custom scripts and tooling specific for a project, the core of checking conformance to the profiling guidelines is formed by checking FHIR resources against a profile, using the HL7 FHIR Validator. When checking against the FHIR profiling guidelines, this means using the profiles defined by these guidelins for the various types conformance resources: profiles and extensions, terminology resources (ValueSets, CodeSystems, NamingSystems and ConceptMaps), infrastructural resources (SearchParameters and CapabilityStatements) and example resources.
 
@@ -21,6 +21,11 @@ An important feature of this tool is to allow the same checks to be used in a ma
 ### Terminology checking
 
 Terminology checking is one of the most complex topics of profile validation. One has to deal with national versions of code systems -- the Dutch edition of SNOMED in particular for our use case and with poor behaviour regarding display values. This tool includes the option to inspect use the default terminology server, the Nationale Terminologieserver (with the default terminology server as fallback) or to disable terminology checking altogether. There's is also a built-in tool to inspect all traffic with the terminology server.
+
+By default terminology checking it is opiniated about several of options:
+* The Dutch version of SNOMED is used, and both Dutch and English are allowed for display values.
+* Display issues are reported as warnings, not as errors (the default behaviour of the Validator is to report them as errors).
+* When a code is encountered that falls outside an extensible bound ValueSet, no warning is emitted (the default behaviour of the Validator is to emit a warning). This can be overridden in the different usage scenarios.
 
 ### Silencing issues
 

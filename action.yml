@@ -13,6 +13,10 @@ inputs:
     description: 'Disable terminology checking'
     required: false
     default: false
+  extensible-binding-warnings:
+    description: Emit a warning for codes that are not in an extensible bound ValueSet.
+    required: false
+    default: false
   steps:
     description: 'The steps to perform'
     required: false
@@ -26,4 +30,5 @@ runs:
     - --github
     - --changed-only=${{ inputs.changed-only}}
     - --no-tx=${{ inputs.no-tx }}
+    - --extensible-binding-warnings=${{ inputs.extensible-binding-warnings }}
     - '${{ inputs.steps }}'
