@@ -212,8 +212,10 @@ class StepExecutor:
         for step_name in step_names:
             step = self.steps[step_name]
             
-            await self.printer.writeLine("\033[1;37m+++ " + step_name + "\033[0m")
-            
+            await self.printer.writeLine("\n+" * (len(step_name) + 10))
+            await self.printer.writeLine("\033[1;37m++++ " + step_name + "++++ \033[0m")
+            await self.printer.writeLine("+" * (len(step_name) + 10))
+
             files = []
             if "patterns" in step:
                 patterns = step["patterns"]
