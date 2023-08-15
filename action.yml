@@ -25,7 +25,7 @@ outputs:
     description: "Information about the status of each step"
 runs:
   using: "docker"
-  image: 'Dockerfile'
+  image: docker://ghcr.io/nictiz/nictiz-tooling-r4-qa:latest
   args:
     - --github
     - --changed-only=${{ inputs.changed-only}}
