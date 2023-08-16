@@ -20,7 +20,6 @@ import yaml
 REPO_DIR    = "/repo"
 TOOLS_DIR   = "/tools"
 SCRIPT_DIR  = "/scripts"
-TX_SERVER   = "http://v4.combined.tx"
 CONFIG_FILE = "qa.yaml"
 
 class Printer:
@@ -196,9 +195,11 @@ class StepExecutor:
     def setDebugging(self, debug):
         self.debug = debug
     
-    def setTerminologyOptions(self, disabled = False, extensible_binding_warnings = False):
-        self.tx_disabled                 = disabled
-        self.extensible_binding_warnings = extensible_binding_warnings
+    def setTerminologyOptions(self, disabled = None, extensible_binding_warnings = None):
+        if disabled != None:
+            self.tx_disabled = disabled
+        if extensible_binding_warnings != None:
+            self.extensible_binding_warnings = extensible_binding_warnings
 
     async def execute(self, *step_names):
         os.environ["debug"] = "1" if self.debug else "0"
@@ -266,14 +267,15 @@ class StepExecutor:
 
     async def _runValidator(self, profile, files):
         out_file = tempfile.mkstemp(".xml")
+
+        # We're opiniated about terminology checking. We want to allow Dutch display values and we don't consider
+        # display issues errors.
+        tx_opt = ["-sct", "nl", "-language", "nl", "-display-issues-are-warnings"]
+        if not self.extensible_binding_warnings: # Our flag is the opposite of the default behaviour of the Validtor
+            tx_opt += ["-no-extensible-binding-warnings"]
         if self.tx_disabled:
-            tx_opt = ["-tx", "n/a"]
-        else:
-            # We're opiniated about terminology checking. We want to allow Dutch display values and we don't consider
-            # display issues errors.
-            tx_opt = ["-sct", "nl", "-language", "nl", "-display-issues-are-warnings"]
-            if not self.extensible_binding_warnings: # Our flag is the opposite of the default behaviour of the Validtor
-                tx_opt += ["-no-extensible-binding-warnings"]
+            tx_opt += ["-tx", "n/a"]
+
         igs = []
         for ig in self.igs:
             igs += ["-ig", ig]
