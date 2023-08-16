@@ -212,10 +212,10 @@ class StepExecutor:
         for step_name in step_names:
             step = self.steps[step_name]
             
-            await self.printer.writeLine("\n+" * (len(step_name) + 10))
-            await self.printer.writeLine("\033[1;37m++++ " + step_name + "++++ \033[0m")
-            await self.printer.writeLine("+" * (len(step_name) + 10))
-
+            await self.printer.writeLine("\033[1;37m" + "#" * (len(step_name) + 10) + "\033[0m")
+            await self.printer.writeLine("\033[1;37m" + "#### " + step_name + " ####" + "\033[0m")
+            await self.printer.writeLine("\033[1;37m" + "#" * (len(step_name) + 10) + "\033[0m\n")
+            
             files = []
             if "patterns" in step:
                 patterns = step["patterns"]
@@ -225,7 +225,7 @@ class StepExecutor:
                     files += self.file_collection[pattern]
         
             if len(files) == 0:
-                await self.printer.writeLine("Nothing to check, skipping")
+                await self.printer.writeLine("\033[1;37mNothing to check, skipping\033[0m")
                 self.printer.writeGithubOutput(f"step[{step_name}][skipped]", "true")
             else:
                 self.printer.writeGithubOutput(f"step[{step_name}][skipped]", "false")
@@ -236,12 +236,14 @@ class StepExecutor:
                 else:
                     success = await self._runValidator(None, files)
                 overall_success &= success
+
+                if success:
+                    await self.printer.writeLine(f'\n\033[1;32mPass: "{step_name}"\033[0m')
+                else:
+                    await self.printer.writeLine(f'\n\033[1;31m"Fail: "{step_name}"\033[0m')
                 self.printer.writeGithubOutput(f"step[{step_name}][result]", "success" if success else "failure")
-    
-        if overall_success:
-            await self.printer.writeLine("All checks finished succesfully")
-        else:
-            await self.printer.writeLine("Not all checks finished successfully")
+
+            await self.printer.writeLine("")
         
         return overall_success
 
