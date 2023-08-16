@@ -2,11 +2,11 @@
 
 This repository contains automated tooling for FHIR R4 conformance resources (profiles, terminology resources, etc.) which are produced according the [Nictiz profiling guidelines](https://informatiestandaarden.nictiz.nl/wiki/FHIR:V1.0_FHIR_Profiling_Guidelines_R4). These tools aim to check as much of these guidelines (and general adherence to the FHIR specs) as is possible in an automated fashion. In addition, custom checks can be defined.
 
-To provide a consistent experience across platforms, these tools are packaged in a Docker container, based on Ubuntu 20.04. They can be invoked either on a local system or as part of a Github workflow.
+To provide a consistent experience across platforms, these tools are packaged in a Docker container, based on Alpine Linux. They can be invoked either on a local system or as part of a Github workflow.
 
 ## Functionality
 
-At its heart, this tool allows an author of FHIR conformance resources to quickly create a set of automated checks on the files in the repository. The result can be used both for manual inspection as for automated workflows. _How_ this can be done is described in the next section; this section aims to summarize _what_ it does (and why).
+At its heart, this tool allows an author of FHIR conformance resources to quickly create a set of automated checks on the files in the repository. The result can be used both for manual inspection and for automated workflows. _How_ this can be done is described in the next section; this section aims to summarize _what_ it does (and why).
 
 ### Resource validation
 
@@ -20,7 +20,7 @@ An important feature of this tool is to allow the same checks to be used in a ma
 
 ### Terminology checking
 
-Terminology checking is one of the most complex topics of profile validation. One has to deal with national versions of code systems -- the Dutch edition of SNOMED in particular for our use case and with poor behaviour regarding display values. This tool includes the option to inspect use the default terminology server, the Nationale Terminologieserver (with the default terminology server as fallback) or to disable terminology checking altogether. There's is also a built-in tool to inspect all traffic with the terminology server.
+Terminology checking is one of the most complex topics of profile validation. One has to deal with national versions of code systems -- the Dutch edition of SNOMED in particular for our use case and with poor behaviour regarding display values.
 
 By default terminology checking it is opiniated about several of options:
 * The Dutch version of SNOMED is used, and both Dutch and English are allowed for display values.
@@ -86,7 +86,7 @@ steps:
     script: scripts/check-formatting.sh
 ```
 
-### The docker-compose.yml file
+### Running locally
 
 To run the docker image, a file called `docker-compose.yml` needs to be defined somewhere in the repository (it doesn't matter where). When there's no need to extend the tooling, it should looks like this:
 
@@ -94,8 +94,7 @@ To run the docker image, a file called `docker-compose.yml` needs to be defined 
 version: "3.9"
 services:
   nictiz-r4-qa:
-    build: https://github.com/Nictiz/Nictiz-R4-QA.git#main
-    image: nictiz/nictiz-r4-qa
+    image: ghcr.io/nictiz/nictiz-tooling-r4-qa
     container_name: nictiz-r4-qa-[repo name]
     volumes:
       - type: bind
@@ -111,23 +110,17 @@ services:
       - 9001:9001
 ```
 
-### Running locally
-
-To run the tool chain, first install and run [Docker Desktop](https://www.docker.com/products/docker-desktop/) (or just Docker engine if you know how this works). Then, the following command should be executed from the directory where the docker-compose.yml file resides (it makes sense to put this in a .bat file):
+Next, install and run [Docker Desktop](https://www.docker.com/products/docker-desktop/) (or just Docker engine if you know how this works). Then, the following command should be executed from the directory where the docker-compose.yml file resides (it makes sense to put this in a .bat file):
 
 > docker compose up nictiz-r4-qa
 
 This starts a local webserver that communicates with the tools. Go to http://localhost:9000 to run the steps defined in the qa.yaml file.
 
-It takes a while to start validation when this command is executed for the first time. This is because the Docker image needs to be built first, which means that all software is downloaded and installed. Subsequent runs will start a lot faster.
-
-It is a good idea to rebuild the image once in a while because some of the software used -- most notably the HL7 Validator -- is updated frequently. To rebuild the image, run the following command:
-
-  > docker-compose build --no-cache
+It can take a while to start validation when this command is executed for the first time. This is because the Docker image needs to be downloaded. Subsequent runs will start a lot faster.
 
 ### On Github
 
-To use this tool on Github, a [workflow description file](https://docs.github.com/en/actions/using-workflows/about-workflows) needs to be defined with a `uses` key for this repo. If needed, the steps to perform can be restricted using the `steps` key. For example:
+To use this tool on Github, a [workflow description file](https://docs.github.com/en/actions/using-workflows/about-workflows) needs to be defined with a `uses` key for this repo (note: so here you don't specify the image like you do in `docker-compose.yml`; the image is still used, but some metadata from the `action.yml` file in this repo is needed to do so). If needed, the steps to perform can be restricted using the `steps` key. For example:
 
 ```yaml
 name: Profile QA - changed files
@@ -142,7 +135,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Docker
-        uses: Nictiz/Nictiz-R4-QA@docker
+        uses: Nictiz/Nictiz-tooling-R4-QA@docker
         with:
           steps: "validate zib profiles, check formatting"
 ```
@@ -151,15 +144,17 @@ It makes sense to create a branch protection rule which requires these checks to
 
 ## Extending
 
-As described above, custom checks can be added using the `script` key in the `qa.yaml` file. The default Ubuntu 20.04 environment is available plus the following:
+As described above, custom checks can be added using the `script` key in the `qa.yaml` file. The default Alpine Linux environment is available plus the following:
 
+* Bash
 * Java (OpenJDK 11)
+* Python (and Pip)
 * Git
 * The HL7 Validator, which can be found in `/$tool_dir/validator/validator.jar`
 
 ### Writing scripts
 
-Scripts can reside anywhere in the repository and are interpreted as standard Linux shell scripts. They can be written in any scripting language available in the Ubuntu 20.04 environment, like bash, Python, etc. To write a script:
+Scripts can reside anywhere in the repository and are interpreted as standard Linux shell scripts. They can be written in any scripting language available in the Alpine Linux environment, like bash, Python, etc. To write a script:
 
 * Make sure to include the interpreter using the [shebang notation](https://linuxhandbook.com/shebang/).
 * The files that need to be checked are passed as positional arguments to the script.
@@ -169,8 +164,6 @@ Scripts can reside anywhere in the repository and are interpreted as standard Li
   * `tools_dir`: The base dir where all local tools are stored, like the HL7 validator or its output wrapper.
   * `work_dir`: The repository directory, or rather, a one-time copy of the repository directory. The repository itself is read-only so there's no change of destroying any data. A fresh copy is made each time the tool _chain_ is run. 
   * `script_dir`: The dir that hosts the (copy of the) custom scripts during execution. See the remark below.
-  * `tx_proxy`: the address of the terminology server proxy
-  * `tx_server`: the address of the terminology server
   * `debug`: flag to define if the tools are run in debug mode ("1" is true and "0" is false)
   * `changed_only`: flag to determine if we need to check changed files only ("1" is true and "0" is false)
   * `write_github`: check to determine if we're writing output as part of a Github workflow ("1" is true and "0" is false)
@@ -179,6 +172,6 @@ Scripts can reside anywhere in the repository and are interpreted as standard Li
 
 ### Installing additional software
 
-If additional software is needed, for the script, you can simply install this from the script. This only needs to be done once; the Docker container is re-used on subsequent runs(so make sure to include a check to see if the software is already installed). 
+If additional software is needed for the script, you can simply install this from the script. This only needs to be done once; the Docker container is re-used on subsequent runs (so make sure to include a check to see if the software is already installed). 
 
-Note: this is only true for local builds. On Github, software will be installed over and over again, but this is also true for the base image. In the future, an image based approach using Docker Hub might be more efficient, but that's out of scope for the moment.
+Note: this is only true for local builds. On Github, software will be installed over and over again. In the future, an image based approach might be more efficient, but that's out of scope for the moment.
