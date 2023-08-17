@@ -132,7 +132,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Docker
-        uses: Nictiz/Nictiz-tooling-R4-QA@docker
+        uses: Nictiz/Nictiz-tooling-R4-QA@alpine
         with:
           steps: "validate zib profiles, check formatting"
 ```
