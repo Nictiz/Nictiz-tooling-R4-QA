@@ -211,7 +211,7 @@ class StepExecutor:
     async def execute(self, *step_names):
         os.environ["debug"] = "1" if self.debug else "0"
         os.environ["changed_only"] = "1" if self.file_collection.changed_only else "0"
-        os.environ["fail_at"] = "1" if self.fail_at else "0"
+        os.environ["fail_at"] = self.fail_at
 
         self._copyScripts()
         self.file_collection.resolve()
@@ -306,7 +306,9 @@ class StepExecutor:
         
         success = False
         if result_validator in [0, 1]: # 0 is normal exit, 1 is an error, but also a validation error. So the exit code is not really usable. Let's just hope this works.
-            command = ["python3", "/tools/hl7-fhir-validator-action/analyze_results.py",  "--colorize", "--fail-at", self.fail_at, "--verbosity-level", self.verbosity_level]
+            fail_at         = "error" if self.fail_at == "fatal"         else self.fail_at
+            verbosity_level = "error" if self.verbosity_level == "fatal" else self.verbosity_level
+            command = ["python3", "/tools/hl7-fhir-validator-action/analyze_results.py",  "--colorize", "--fail-at", fail_at, "--verbosity-level", verbosity_level]
             if printer.write_github:
                 command.append("--github")
             if self.ignored_issues:

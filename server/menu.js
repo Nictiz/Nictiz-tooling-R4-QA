@@ -36,6 +36,29 @@ document.getElementById('start_btn').addEventListener('click', async (event) => 
     })
 })
 
+document.getElementById('verbosity_fatal').addEventListener('click', e => document.getElementById('fail_at_fatal').checked = true)
+document.getElementById('verbosity_error').addEventListener('click', e => {
+    if (document.getElementById('fail_at_information').checked || document.getElementById('fail_at_warning').checked) {
+        document.getElementById('fail_at_error').checked = true
+    }
+})
+document.getElementById('verbosity_warning').addEventListener('click', e => {
+    if (document.getElementById('fail_at_information').checked) {
+        document.getElementById('fail_at_warning').checked = true
+    }
+})
+document.getElementById('fail_at_error').addEventListener('click', e => {
+    if (document.getElementById('verbosity_fatal').checked) {
+        document.getElementById('verbosity_error').checked = true
+    }
+})
+document.getElementById('fail_at_warning').addEventListener('click', e => {
+    if (document.getElementById('verbosity_fatal').checked || document.getElementById('verbosity_error').checked) {
+        document.getElementById('verbosity_warning').checked = true
+    }
+})
+document.getElementById('fail_at_information').addEventListener('click', e => document.getElementById('verbosity_information').checked = true)
+
 function setActive(is_active) {
     let btn = document.getElementById('start_btn')
     btn.disabled = !is_active
