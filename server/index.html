@@ -59,6 +59,31 @@
                 <input type="checkbox" name="extensible_binding_warnings" id="extensible_binding_warnings"/>
                 <label for="extensible_binding_warnings">Emit a warning for codes that are not in an extensible bound ValueSet.</label>
             </fieldset>
+            <fieldset style="display: flex;">
+                <legend>Message levels:</legend>
+                <fieldset style="flex: 1;">
+                    <legend>Output:</legend>
+                    <input type="radio" name="verbosity_level" id="fatal" value="fatal"/>
+                    <label for="fatal">Fatal</label><br />
+                    <input type="radio" name="verbosity_level" id="error" value="error"/>
+                    <label for="fatal">Error</label><br />
+                    <input type="radio" name="verbosity_level" id="warning" value="warning"/>
+                    <label for="fatal">Warning</label><br />
+                    <input type="radio" name="verbosity_level" id="information" value="information" checked="checked"/>
+                    <label for="fatal">Information</label><br />
+                </fieldset>
+                <fieldset style="flex: 1;">
+                    <legend>Fail at:</legend>
+                    <input type="radio" name="fail_at" id="fatal" value="fatal"/>
+                    <label for="fatal">Fatal</label><br />
+                    <input type="radio" name="fail_at" id="error" value="error" checked="checked"/>
+                    <label for="fatal">Error</label><br />
+                    <input type="radio" name="fail_at" id="warning" value="warning"/>
+                    <label for="fatal">Warning</label><br />
+                    <input type="radio" name="fail_at" id="information" value="information"/>
+                    <label for="fatal">Information</label><br />
+                </fieldset>
+            </fieldset>
             <input type="checkbox" id="debug" name="debug">
             <label for="debug">Enable debugging</label><br />
             <button type="button" id="start_btn">Perform QA</button>

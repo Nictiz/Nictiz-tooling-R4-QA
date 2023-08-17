@@ -5,6 +5,10 @@ inputs:
     description: 'The test will fail when an issue of this level is detected. Options are "fatal", "error" and "warning".'
     required: false
     default: 'error'
+  verbosity-level:
+    description: 'Show messages from this level onwards. Options are "fatal", "error", "warning" and "information".'
+    required: false
+    default: "information"
   changed-only:
     description: 'Indicates whether only changed files (compared to the main branch) should be checked'
     required: false
@@ -31,4 +35,6 @@ runs:
     - --changed-only=${{ inputs.changed-only}}
     - --no-tx=${{ inputs.no-tx }}
     - --extensible-binding-warnings=${{ inputs.extensible-binding-warnings }}
+    - --verbosity-level=${{ inputs.verbosity-level }}
+    - --fail-at=${{ inputs.fail-at }}
     - '${{ inputs.steps }}'

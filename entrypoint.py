@@ -158,7 +158,7 @@ class FileCollection(dict):
                             combined.append(file_name)
 
 class StepExecutor:
-    def __init__(self, config, file_collection, printer, fail_at):
+    def __init__(self, config, file_collection, printer, fail_at, verbosity_level):
         if "steps" in config:
             self.steps = config["steps"]
         else:
@@ -166,6 +166,7 @@ class StepExecutor:
 
         self.tx_disabled       = False
         self.fail_at           = fail_at
+        self.verbosity_level   = verbosity_level
         self.file_collection   = file_collection
         self.printer           = printer
 
@@ -200,6 +201,12 @@ class StepExecutor:
             self.tx_disabled = disabled
         if extensible_binding_warnings != None:
             self.extensible_binding_warnings = extensible_binding_warnings
+
+    def setLevels(self, verbosity = None, fail_at = None):
+        if verbosity != None:
+            self.verbosity_level = verbosity
+        if fail_at != None:
+            self.fail_at = fail_at
 
     async def execute(self, *step_names):
         os.environ["debug"] = "1" if self.debug else "0"
@@ -299,7 +306,7 @@ class StepExecutor:
         
         success = False
         if result_validator in [0, 1]: # 0 is normal exit, 1 is an error, but also a validation error. So the exit code is not really usable. Let's just hope this works.
-            command = ["python3", "/tools/hl7-fhir-validator-action/analyze_results.py",  "--colorize", "--fail-at", self.fail_at]
+            command = ["python3", "/tools/hl7-fhir-validator-action/analyze_results.py",  "--colorize", "--fail-at", self.fail_at, "--verbosity-level", self.verbosity_level]
             if printer.write_github:
                 command.append("--github")
             if self.ignored_issues:
@@ -406,6 +413,11 @@ class QAServer:
             elif content["terminology"] == "default_tx":
                 self.executor.setTerminologyOptions(disabled = False)
 
+        if "verbosity_level" in content:
+            self.executor.setLevels(verbosity = content["verbosity_level"])
+        if "fail_at" in content:
+            self.executor.setLevels(fail_at = content["fail_at"])
+
         self.executor.setTerminologyOptions(extensible_binding_warnings = ("extensible_binding_warnings" in content))
         self.executor.setDebugging("debug" in content)
         
@@ -443,6 +455,8 @@ if __name__ == "__main__":
                         help = "Emit a warning for codes that are not in an extensible bound ValueSet.")
     parser.add_argument("--fail-at", choices = ["fatal", "error", "warning"], default = "error",
                         help = "The test fails when an issue with this gravity is encountered.")
+    parser.add_argument("--verbosity-level", choices = ["fatal", "error", "warning", "information"], default = "information",
+                        help = "Show messages from this level onwards.")
     parser.add_argument("--debug", type = __interpretStringAsBool, nargs = '?', const = True, default = False, metavar = 'boolean',
                         help = "Display debugging information for when something goes wrong.")
     parser.add_argument("--github", type = __interpretStringAsBool, nargs = '?', const = True, default = False, metavar = 'boolean',
@@ -472,7 +486,7 @@ if __name__ == "__main__":
         config = yaml.safe_load(config_file)
     file_collection = FileCollection(config, args.changed_only, args.github)
     printer = Printer(args.github)
-    executor = StepExecutor(config, file_collection, printer, args.fail_at)
+    executor = StepExecutor(config, file_collection, printer, args.fail_at, args.verbosity_level)
     executor.setTerminologyOptions(disabled = args.no_tx, extensible_binding_warnings = args.extensible_binding_warnings)
     executor.setDebugging(args.debug)
    
