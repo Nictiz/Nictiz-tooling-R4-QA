@@ -103,11 +103,8 @@ services:
         read_only: true
     environment:
       - MENU_PORT=9000
-      - TX_MENU_PORT=9001
     ports:
-      - 8081:8081
       - 9000:9000
-      - 9001:9001
 ```
 
 Next, install and run [Docker Desktop](https://www.docker.com/products/docker-desktop/) (or just Docker engine if you know how this works). Then, the following command should be executed from the directory where the docker-compose.yml file resides (it makes sense to put this in a .bat file):

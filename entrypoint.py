@@ -472,11 +472,6 @@ if __name__ == "__main__":
     except KeyError:
         MENU_PORT = 9000
 
-    try:
-        TX_MENU_PORT = os.environ["TX_MENU_PORT"]
-    except KeyError:
-        TX_MENU_PORT = 9001
-    
     if args.github and "GITHUB_WORKSPACE" in os.environ:
         REPO_DIR = os.environ["GITHUB_WORKSPACE"]
 
