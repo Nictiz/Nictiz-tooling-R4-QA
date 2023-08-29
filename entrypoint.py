@@ -277,7 +277,7 @@ class StepExecutor:
 
         # We're opiniated about terminology checking. We want to allow Dutch display values and we don't consider
         # display issues errors.
-        tx_opt = ["-sct", "nl", "-language", "nl", "-display-issues-are-warnings"]
+        tx_opt = ["-sct", "nl", "-display-issues-are-warnings"]
         if not self.extensible_binding_warnings: # Our flag is the opposite of the default behaviour of the Validtor
             tx_opt += ["-no-extensible-binding-warnings"]
         if self.tx_disabled:

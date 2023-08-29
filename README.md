@@ -23,7 +23,8 @@ An important feature of this tool is to allow the same checks to be used in a ma
 Terminology checking is one of the most complex topics of profile validation. One has to deal with national versions of code systems -- the Dutch edition of SNOMED in particular for our use case and with poor behaviour regarding display values.
 
 By default terminology checking it is opiniated about several of options:
-* The Dutch version of SNOMED is used, and both Dutch and English are allowed for display values.
+* The Dutch version of SNOMED is used.
+* And all languages are allowed for display values (the default for the Validator from version 6.1.1 onwards).
 * Display issues are reported as warnings, not as errors (the default behaviour of the Validator is to report them as errors).
 * When a code is encountered that falls outside an extensible bound ValueSet, no warning is emitted (the default behaviour of the Validator is to emit a warning). This can be overridden in the different usage scenarios.
 
