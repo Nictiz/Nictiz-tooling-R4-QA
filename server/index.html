@@ -50,15 +50,22 @@
                 <input type="radio" name="check_what" id="changed" value="changed" checked="checked"/>
                 <label for="changed">Changed material only</label>
             </fieldset>
-            <fieldset>
-                <legend>Terminology:</legend>
-                <input type="radio" name="terminology" id="default_tx" value="default_tx" checked="checked"/>
-                <label for="default_tx">Default terminology server</label><br />
-                <input type="radio" name="terminology" id="disabled" value="disabled"/>
-                <label for="disabled">No terminology server</label><br />
-                <input type="checkbox" name="extensible_binding_warnings" id="extensible_binding_warnings"/>
-                <label for="extensible_binding_warnings">Emit a warning for codes that are not in an extensible bound ValueSet.</label>
-            </fieldset>
+            <fieldset style="display: flex;">
+                <fieldset style="flex: 1;">
+                    <legend>Terminology:</legend>
+                    <input type="radio" name="terminology" id="default_tx" value="default_tx" checked="checked"/>
+                    <label for="default_tx">Default terminology server</label><br />
+                    <input type="radio" name="terminology" id="disabled" value="disabled"/>
+                    <label for="disabled">No terminology server</label><br />
+                    <input type="checkbox" name="extensible_binding_warnings" id="extensible_binding_warnings"/>
+                    <label for="extensible_binding_warnings">Emit a warning for codes that are not in an extensible bound ValueSet</label>
+                </fieldset>
+                <fieldset style="flex: 1;">
+                    <legend>Other options:</legend>
+                    <input type="checkbox" name="best_practice_warnings" id="best_practice_warnings" checked="checked"/>
+                    <label for="best_practice_warnings">Emit a warning when best practices aren't followed</label>
+                </fieldset>
+                </fieldset>
             <fieldset style="display: flex;">
                 <legend>Message levels:</legend>
                 <fieldset style="flex: 1;">

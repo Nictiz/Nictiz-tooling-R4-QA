@@ -164,11 +164,12 @@ class StepExecutor:
         else:
             self.steps = {}
 
-        self.tx_disabled       = False
-        self.fail_at           = fail_at
-        self.verbosity_level   = verbosity_level
-        self.file_collection   = file_collection
-        self.printer           = printer
+        self.tx_disabled            = False
+        self.fail_at                = fail_at
+        self.verbosity_level        = verbosity_level
+        self.best_practice_warnings = True
+        self.file_collection        = file_collection
+        self.printer                = printer
 
         # By default, we handle the Nictiz profiling guidelines package. Additional ig's may be defined in the config file.
         self.igs = ["nictiz.fhir.nl.r4.profilingguidelines"]
@@ -207,6 +208,9 @@ class StepExecutor:
             self.verbosity_level = verbosity
         if fail_at != None:
             self.fail_at = fail_at
+
+    def setBestPracticeWarnings(self, best_practice_warnings):
+        self.best_practice_warnings = best_practice_warnings
 
     async def execute(self, *step_names):
         os.environ["debug"] = "1" if self.debug else "0"
@@ -282,6 +286,7 @@ class StepExecutor:
             tx_opt += ["-no-extensible-binding-warnings"]
         if self.tx_disabled:
             tx_opt += ["-tx", "n/a"]
+        best_practices_opt = ["-best-practice", "warning" if self.best_practice_warnings else "ignore"]
 
         igs = []
         for ig in self.igs:
@@ -293,7 +298,7 @@ class StepExecutor:
             profile_flag = []
         command = [
             "java", "-jar", "/tools/validator/validator.jar",
-            '-version', "4.0.1"] + igs + ["-recurse"] + profile_flag + tx_opt + [
+            '-version', "4.0.1"] + igs + ["-recurse"] + profile_flag + tx_opt + best_practices_opt + [
             "-output", out_file[1]] + files
         
         self.printer.startGithubGroup("Run validator")
@@ -421,6 +426,7 @@ class QAServer:
             self.executor.setLevels(fail_at = content["fail_at"])
 
         self.executor.setTerminologyOptions(extensible_binding_warnings = ("extensible_binding_warnings" in content))
+        self.executor.setBestPracticeWarnings("best_practice_warnings" in content)
         self.executor.setDebugging("debug" in content)
         
         self.executor.printer.setSocket(self.ws)
@@ -455,6 +461,8 @@ if __name__ == "__main__":
                         help = "Disable the use of a terminology server all together.")
     parser.add_argument("--extensible-binding-warnings", type = __interpretStringAsBool, nargs = '?', const = True, default = False, metavar = 'boolean',
                         help = "Emit a warning for codes that are not in an extensible bound ValueSet.")
+    parser.add_argument("--best-practice-warnings", type = __interpretStringAsBool, nargs = "?", const = True, default = True, metavar = "boolean",
+                        help = "Emit a warning when best practices aren't followed")
     parser.add_argument("--fail-at", choices = ["fatal", "error", "warning"], default = "error",
                         help = "The test fails when an issue with this gravity is encountered.")
     parser.add_argument("--verbosity-level", choices = ["fatal", "error", "warning", "information"], default = "information",
@@ -485,6 +493,7 @@ if __name__ == "__main__":
     printer = Printer(args.github)
     executor = StepExecutor(config, file_collection, printer, args.fail_at, args.verbosity_level)
     executor.setTerminologyOptions(disabled = args.no_tx, extensible_binding_warnings = args.extensible_binding_warnings)
+    executor.setBestPracticeWarnings(args.best_practice_warnings)
     executor.setDebugging(args.debug)
    
     if len(args.steps) > 1:
