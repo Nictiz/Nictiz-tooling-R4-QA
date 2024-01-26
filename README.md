@@ -34,6 +34,12 @@ False positives are an inevitable part of automated checks. This tool offers the
 
 These suppressed issue are described in a YAML file, which should be (reasonably) human-readable. The format is described here: This is described in [https://github.com/pieter-edelman-nictiz/hl7-fhir-validator-action#suppressing-messages]
 
+#### Extra options
+
+The Validator offers the option to check for best practices in resources. This is a useful check, but might lead to a myriad of false positives in somewhat synthetic environments like projects under development or example materials that only serve as an illustration of how to use a profile. For this reason, these best practices can be enabled or silenced using the `best-practice-warnings` option or on the GUI.
+
+Note that, unlike the Validator itself, there's no choice on the error level to use for best practice issues -- they are always warnings.
+
 ### Custom tools
 
 Lastly, the tool offers an environment for custom scripts, which can make use of the same terminology capabilities and variables defined as for the profile checks.
