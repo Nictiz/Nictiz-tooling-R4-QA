@@ -95,13 +95,13 @@ steps:
 
 ### Running locally
 
-To run the docker image, a file called `docker-compose.yml` needs to be defined somewhere in the repository (it doesn't matter where). When there's no need to extend the tooling, it should looks like this:
+To run the docker image, a file called `docker-compose.yml` needs to be defined somewhere in the repository (it doesn't matter where). When there's no need to extend the tooling, it should looks like this (please note the `[version]` should be populated with the version of this tool):
 
 ```yaml
 version: "3.9"
 services:
   nictiz-r4-qa:
-    image: ghcr.io/nictiz/nictiz-tooling-r4-qa
+    image: ghcr.io/nictiz/nictiz-tooling-r4-qa@[version]
     container_name: nictiz-r4-qa-[repo name]
     volumes:
       - type: bind
@@ -124,7 +124,7 @@ It can take a while to start validation when this command is executed for the fi
 
 ### On Github
 
-To use this tool on Github, a [workflow description file](https://docs.github.com/en/actions/using-workflows/about-workflows) needs to be defined with a `uses` key for this repo (note: so here you don't specify the image like you do in `docker-compose.yml`; the image is still used, but some metadata from the `action.yml` file in this repo is needed to do so). If needed, the steps to perform can be restricted using the `steps` key. For example:
+To use this tool on Github, a [workflow description file](https://docs.github.com/en/actions/using-workflows/about-workflows) needs to be defined with a `uses` key for this repo (note: so here you don't specify the image like you do in `docker-compose.yml`; the image is still used, but some metadata from the `action.yml` file in this repo is needed to do so). If needed, the steps to perform can be restricted using the `steps` key. For example (please note that `[version]` should be populated with the version of this tool):
 
 ```yaml
 name: Profile QA - changed files
@@ -135,16 +135,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Docker
-        uses: Nictiz/Nictiz-tooling-R4-QA@alpine
+        uses: Nictiz/Nictiz-tooling-R4-QA@[version]
         with:
           steps: "validate zib profiles, check formatting"
 ```
 
 It makes sense to create a branch protection rule which requires these checks to pass.
+
+### Versioning
+
+The development pace of the HL7 Validator is high and things tend to break over time. Therefore, it is advisable to use an explicit fixed version of the Validator. This tool supports this by tagging releases with the version number of the Validator used.
 
 ## Extending
 
