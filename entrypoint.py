@@ -197,11 +197,13 @@ class StepExecutor:
     def setDebugging(self, debug):
         self.debug = debug
     
-    def setTerminologyOptions(self, disabled = None, extensible_binding_warnings = None):
+    def setTerminologyOptions(self, disabled = None, extensible_binding_warnings = None, suppress_display_issues = None):
         if disabled != None:
             self.tx_disabled = disabled
         if extensible_binding_warnings != None:
             self.extensible_binding_warnings = extensible_binding_warnings
+        if suppress_display_issues != None:
+            self.suppress_display_issues = suppress_display_issues
 
     def setLevels(self, verbosity = None, fail_at = None):
         if verbosity != None:
@@ -319,6 +321,8 @@ class StepExecutor:
             command = ["python3", "/tools/hl7-fhir-validator-action/analyze_results.py",  "--colorize", "--fail-at", fail_at, "--verbosity-level", verbosity_level]
             if printer.write_github:
                 command.append("--github")
+            if self.suppress_display_issues:
+                command.append("--suppress-display-issues")
             if self.ignored_issues:
                 command += ["--ignored-issues", self.ignored_issues]
             command += [out_file[1]]
@@ -423,6 +427,8 @@ class QAServer:
             elif content["terminology"] == "default_tx":
                 self.executor.setTerminologyOptions(disabled = False)
 
+        if "suppress_display_issues" in content:
+            self.executor.setTerminologyOptions(suppress_display_issues = True)
         if "verbosity_level" in content:
             self.executor.setLevels(verbosity = content["verbosity_level"])
         if "fail_at" in content:
@@ -466,6 +472,8 @@ if __name__ == "__main__":
                         help = "Emit a warning for codes that are not in an extensible bound ValueSet.")
     parser.add_argument("--best-practice-warnings", type = __interpretStringAsBool, nargs = "?", const = True, default = True, metavar = "boolean",
                         help = "Emit a warning when best practices aren't followed")
+    parser.add_argument("--suppress-display-issues", type = __interpretStringAsBool, nargs = '?', const = True, default = False, metavar = 'boolean',
+                        help = "Suppress all reported issues about incorrect terminology displays")
     parser.add_argument("--fail-at", choices = ["fatal", "error", "warning"], default = "error",
                         help = "The test fails when an issue with this gravity is encountered.")
     parser.add_argument("--verbosity-level", choices = ["fatal", "error", "warning", "information"], default = "information",
@@ -495,7 +503,7 @@ if __name__ == "__main__":
     file_collection = FileCollection(config, args.changed_only, args.github)
     printer = Printer(args.github)
     executor = StepExecutor(config, file_collection, printer, args.fail_at, args.verbosity_level)
-    executor.setTerminologyOptions(disabled = args.no_tx, extensible_binding_warnings = args.extensible_binding_warnings)
+    executor.setTerminologyOptions(disabled = args.no_tx, extensible_binding_warnings = args.extensible_binding_warnings, suppress_display_issues = args.suppress_display_issues)
     executor.setBestPracticeWarnings(args.best_practice_warnings)
     executor.setDebugging(args.debug)
    

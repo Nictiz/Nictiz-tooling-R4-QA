@@ -21,6 +21,10 @@ inputs:
     description: Emit a warning for codes that are not in an extensible bound ValueSet.
     required: false
     default: false
+  suppress-display-issues:
+    description: Suppress all reported issues about incorrect terminology displays
+    required: false
+    default: false
   best-practice-warnings:
     description: Emit a warning when best practices aren't followed
     required: false
@@ -39,6 +43,7 @@ runs:
     - --changed-only=${{ inputs.changed-only}}
     - --no-tx=${{ inputs.no-tx }}
     - --extensible-binding-warnings=${{ inputs.extensible-binding-warnings }}
+    - --suppress-display-issues=${{ inputs.suppress-display-issues }}
     - --best-practice-warnings=${{ inputs.best-practice-warnings }}
     - --verbosity-level=${{ inputs.verbosity-level }}
     - --fail-at=${{ inputs.fail-at }}
