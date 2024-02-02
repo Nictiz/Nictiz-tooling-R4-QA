@@ -277,7 +277,10 @@ class StepExecutor:
             os.chdir(curr_dir)
 
     async def _runValidator(self, profile, files):
+        # Get a name for a temp file, but remove the file itself so we can check if the Validator produced the required
+        # output
         out_file = tempfile.mkstemp(".xml")
+        os.unlink(out_file[1])
 
         # We're opiniated about terminology checking. We want to allow Dutch display values and we don't consider
         # display issues errors.
@@ -306,11 +309,11 @@ class StepExecutor:
             suppress_output = False
         else:
             suppress_output = True
-        result_validator = await self._popen(command, suppress_output=suppress_output)
+        await self._popen(command, suppress_output=suppress_output)
         self.printer.endGithubGroup()
         
         success = False
-        if result_validator in [0, 1]: # 0 is normal exit, 1 is an error, but also a validation error. So the exit code is not really usable. Let's just hope this works.
+        if os.path.exists(out_file[1]):
             fail_at         = "error" if self.fail_at == "fatal"         else self.fail_at
             verbosity_level = "error" if self.verbosity_level == "fatal" else self.verbosity_level
             command = ["python3", "/tools/hl7-fhir-validator-action/analyze_results.py",  "--colorize", "--fail-at", fail_at, "--verbosity-level", verbosity_level]
