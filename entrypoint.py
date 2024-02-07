@@ -144,7 +144,7 @@ class FileCollection(dict):
         if self.mode == FileCollection.Mode.CHANGED:
             # If we're only interested in the files that are new or changed compared to the main branch, we first ask
             # git for a list of all these files, committed or not
-            committed   = subprocess.run(["git", "diff", "--name-only", "--diff-filter=ACM", self.main_branch], capture_output = True)
+            committed   = subprocess.run(["git", "diff", "--name-only", "--diff-filter=ACM", "--ignore-space-at-eol", self.main_branch], capture_output = True)
             uncommitted = subprocess.run(["git", "ls-files", "--others"], capture_output = True)
             if committed and uncommitted:
                 changed_files =  committed.stdout.decode("UTF-8").split("\n")
