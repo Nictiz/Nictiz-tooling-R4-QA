@@ -136,9 +136,6 @@ class FileCollection(dict):
             else:
                 self.file_name_globs = [f"*{filter.strip()}*" for filter in file_name_filters]
    
-    def asPosix(self, key):
-        return [p.as_posix() for p in self[key]]
-
     def resolve(self):
         # Reset all file lists
         for pattern_name in self.keys():
@@ -166,11 +163,12 @@ class FileCollection(dict):
             # file name globs
             for pattern in patterns:
                 for file_path in pathlib.Path().glob(pattern):
-                    if self.mode == FileCollection.Mode.CHANGED and file_path in changed_files:
-                        self[pattern_name].append(file_path)
-                        changed_files.remove(file_path)
+                    if self.mode == FileCollection.Mode.CHANGED:
+                        if file_path.as_posix() in changed_files:
+                            self[pattern_name].append(file_path.as_posix())
+                            changed_files.remove(file_path.as_posix())
                     elif (file_path not in combined) and any([fnmatch.fnmatch(file_path.name, fn_glob) for fn_glob in self.file_name_globs]):
-                        self[pattern_name].append(file_path)
+                        self[pattern_name].append(file_path.as_posix())
                         combined.append(file_path)
 
 class StepExecutor:
@@ -232,7 +230,7 @@ class StepExecutor:
 
     async def execute(self, *step_names):
         os.environ["debug"] = "1" if self.debug else "0"
-        os.environ["changed_only"] = "1" if self.file_collection.changed_only else "0"
+        os.environ["changed_only"] = "1" if self.file_collection.mode == FileCollection.Mode.CHANGED else "0"
         os.environ["fail_at"] = self.fail_at
 
         self._copyScripts()
@@ -252,7 +250,7 @@ class StepExecutor:
                 if type(patterns) == str:
                     patterns = [patterns]
                 for pattern in patterns:
-                    files += self.file_collection.asPosix(pattern)
+                    files += self.file_collection[pattern]
         
             if len(files) == 0:
                 await self.printer.writeLine("\033[1;37mNothing to check, skipping\033[0m")
@@ -487,7 +485,7 @@ class QAServer:
                 if type(patterns) == str:
                     patterns = [patterns]
                 for pattern in patterns:
-                    files += self.executor.file_collection.asPosix(pattern)
+                    files += self.executor.file_collection[pattern]
 
         return web.json_response({"files": files})
         
