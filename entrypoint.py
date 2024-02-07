@@ -102,6 +102,15 @@ class Printer:
         
         return f"</span><span style='color: {color}'>"
 class FileCollection(dict):
+    """ Class to select the relevant files per step, as specified using the patterns in the qa.yaml file.
+
+        An instance of this class acts as a dict where each step name can be used as a key to retrieve a list of
+        associated files with their path relative to the repo root. To use this instance for the first time, after 
+        configuration changes and to detect changes in the file system, the resolve() method needs to be called.
+
+        There are three modes of file detection possible: all files, all files that have been changed compared to the
+        main branch (as specified in the qa.yaml file), or file names filtered using one or more filters.
+    """
     class Mode(enum.Enum):
         ALL = 1
         FILTERED = 2
@@ -127,14 +136,19 @@ class FileCollection(dict):
             subprocess.run(["git", "config", "--global", "--add", "safe.directory", os.getcwd()])
 
     def setMode(self, mode, file_name_filters = None):
+        """ Set the file selection mode using the Mode enum.
+        
+            If using filter mode, a list of filters is expected. A filter is simply a part of the file name, optionally
+            using wildcards.
+        """
         self.mode = mode
-        if self.mode == FileCollection.Mode.ALL:
+
+        # Internally, filters are converted to globs by appending and prepending a "*" to them. When no actual
+        # filtering needs to be done, we set our globbing patterns simply to a catch-all wildcard.
+        if self.mode == FileCollection.Mode.ALL or (self.mode == FileCollection.Mode.FILTERED and file_name_filters == None):
             self.file_name_globs = ["*"]
         elif self.mode == FileCollection.Mode.FILTERED:
-            if file_name_filters == None:
-                self.file_name_globs = ["*"]
-            else:
-                self.file_name_globs = [f"*{filter.strip()}*" for filter in file_name_filters]
+            self.file_name_globs = [f"*{filter.strip()}*" for filter in file_name_filters]
    
     def resolve(self):
         # Reset all file lists
@@ -463,7 +477,8 @@ class QAServer:
         return web.Response()
 
     async def _getFileSelection(self, request):
-        """ Set file name filters for the file selection. The request is expected to have two fields:
+        """ Get (all) the file names that will be affected by the selected validation steps and selection settings.
+            The result is not split out per step. The following paramters can be used:
             * mode: either "all", "changed" or "filtered"
             * step_names: the current selection of steps to execute
             * filters: a comma-separated list of file name filters
@@ -502,6 +517,7 @@ class QAServer:
                 for pattern in patterns:
                     files += self.executor.file_collection[pattern]
 
+        # Respond with a list of files
         return web.json_response({"files": files})
         
     async def _executeAndReport(self, steps):
