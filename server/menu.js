@@ -64,6 +64,9 @@ async function refreshFileFilter() {
         // Show/enable form elements
         document.getElementById("file_name_filters").removeAttribute("disabled")
         document.getElementById("filter_result").style.display = "block"
+        let waiting = document.createElement("i")
+        waiting.textContent = "refreshing ..."
+        document.getElementById("filter_result").replaceChildren(waiting)
 
         // Collect the validation steps to which the glob applies
         selected_steps = []
@@ -102,6 +105,12 @@ document.querySelectorAll("fieldset[name=steps] > input[type=checkbox]").forEach
 window.addEventListener("load", refreshFileFilter)
 
 function setActive(is_active) {
+    if (is_active) {
+        document.querySelectorAll("form#qa_form > fieldset").forEach(fieldset => fieldset.removeAttribute("disabled"))
+    } else {
+        document.querySelectorAll("form#qa_form > fieldset").forEach(fieldset => fieldset.setAttribute("disabled", "disabled"))
+    }
+    
     let btn = document.getElementById('start_btn')
     btn.disabled = !is_active
     if (is_active) {

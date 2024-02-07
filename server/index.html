@@ -32,6 +32,11 @@
                 padding: 0.5ex;
                 background-color: red;
             }
+
+            div#filter_result {
+                font-family: monospace;
+                background: rgb(234, 234, 234);
+            }
         </style>
     </head>
     <body>
@@ -51,8 +56,9 @@
                 <label for="changed">Changed material only</label>
                 <br />
                 <input type="radio" name="check_what" id="filtered" value="filtered"/>
-                <label for="filtered">Files matching pattern(s): </label>
-                <input type="text" size="60" id="file_name_filters" name="file_name_filters" disabled="disabled"/><br />
+                <label for="filtered">Files where the name contains:&nbsp;</label>
+                <input type="text" size="60" id="file_name_filters" name="file_name_filters" disabled="disabled"
+                    placeholder='e.g  HealthProfessional, AbilityTo*Oneself' title='Part of the file name to filter on. Wildcards ("*", "?") are supported. Multiple filters can be listed with comma&quot;s'/><br />
                 <div id="filter_result" style="max-height: 200px; overflow-y: scroll; display: none;"></div>
             </fieldset>
             <fieldset style="display: flex;">
