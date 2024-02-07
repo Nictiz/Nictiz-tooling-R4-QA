@@ -4,6 +4,7 @@ import aiohttp
 from aiohttp import web
 import argparse
 import asyncio
+import enum
 import fnmatch
 import glob
 import mimetypes
@@ -101,7 +102,12 @@ class Printer:
         
         return f"</span><span style='color: {color}'>"
 class FileCollection(dict):
-    def __init__(self, config, changed_only = True, on_github = False):
+    class Mode(enum.Enum):
+        ALL = 1
+        FILTERED = 2
+        CHANGED = 3
+
+    def __init__(self, config, mode = Mode.CHANGED, on_github = False):
         if "patterns" in config:
             self.patterns = config["patterns"]
         else:
@@ -115,20 +121,21 @@ class FileCollection(dict):
         else:
             self.main_branch = "origin/main"
 
-        self.changed_only = changed_only
-        self.file_name_globs = ["*"]
+        self.setMode(mode)
 
         if on_github:
             subprocess.run(["git", "config", "--global", "--add", "safe.directory", os.getcwd()])
 
-    def setChangedOnly(self, changed_only):
-        self.changed_only = changed_only
-        self.file_name_globs = ["*"]
-    
-    def setFileNameFilters(self, file_name_filters):
-        self.changed_only = False
-        self.file_name_globs = [f"*{filter.strip()}*" for filter in file_name_filters]
-
+    def setMode(self, mode, file_name_filters = None):
+        self.mode = mode
+        if self.mode == FileCollection.Mode.ALL:
+            self.file_name_globs = ["*"]
+        elif self.mode == FileCollection.Mode.FILTERED:
+            if file_name_filters == None:
+                self.file_name_globs = ["*"]
+            else:
+                self.file_name_globs = [f"*{filter.strip()}*" for filter in file_name_filters]
+   
     def asPosix(self, key):
         return [p.as_posix() for p in self[key]]
 
@@ -137,7 +144,7 @@ class FileCollection(dict):
         for pattern_name in self.keys():
             self[pattern_name] = []
 
-        if self.changed_only:
+        if self.mode == FileCollection.Mode.CHANGED:
             # If we're only interested in the files that are new or changed compared to the main branch, we first ask
             # git for a list of all these files, committed or not
             committed   = subprocess.run(["git", "diff", "--name-only", "--diff-filter=ACM", self.main_branch], capture_output = True)
@@ -159,7 +166,7 @@ class FileCollection(dict):
             # file name globs
             for pattern in patterns:
                 for file_path in pathlib.Path().glob(pattern):
-                    if self.changed_only and file_path in changed_files:
+                    if self.mode == FileCollection.Mode.CHANGED and file_path in changed_files:
                         self[pattern_name].append(file_path)
                         changed_files.remove(file_path)
                     elif (file_path not in combined) and any([fnmatch.fnmatch(file_path.name, fn_glob) for fn_glob in self.file_name_globs]):
@@ -425,9 +432,11 @@ class QAServer:
 
         if "check_what" in content:
             if content["check_what"] == "filtered":
-                self.executor.file_collection.setFileNameFilters(content["file_name_filters"].split(","))
+                self.executor.file_collection.setMode(FileCollection.Mode.FILTERED, content["file_name_filters"].split(","))
+            elif content["check_what"] == "changed":
+                self.executor.file_collection.setMode(FileCollection.Mode.CHANGED)
             else:
-                self.executor.file_collection.setChangedOnly(content["check_what"] == "changed")           
+                self.executor.file_collection.setMode(FileCollection.Mode.ALL)
 
         steps = []
         for key in content:
@@ -467,7 +476,7 @@ class QAServer:
             return web.json_response({"files": []})
         step_names = content["step_names"].split(",")
 
-        self.executor.file_collection.setFileNameFilters(content["file_name_filters"].split(","))
+        self.executor.file_collection.setMode(FileCollection.Mode.FILTERED, content["file_name_filters"].split(","))
         self.executor.file_collection.resolve()
         files = []
         for step_name in step_names:
@@ -540,7 +549,7 @@ if __name__ == "__main__":
 
     with open(CONFIG_FILE) as config_file:
         config = yaml.safe_load(config_file)
-    file_collection = FileCollection(config, args.changed_only, args.github)
+    file_collection = FileCollection(config, FileCollection.Mode.CHANGED if args.changed_only else FileCollection.Mode.ALL, args.github)
     printer = Printer(args.github)
     executor = StepExecutor(config, file_collection, printer, args.fail_at, args.verbosity_level)
     executor.setTerminologyOptions(disabled = args.no_tx, extensible_binding_warnings = args.extensible_binding_warnings, suppress_display_issues = args.suppress_display_issues)
