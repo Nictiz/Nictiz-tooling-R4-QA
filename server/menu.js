@@ -59,6 +59,47 @@ document.getElementById('fail_at_warning').addEventListener('click', e => {
 })
 document.getElementById('fail_at_information').addEventListener('click', e => document.getElementById('verbosity_information').checked = true)
 
+async function refreshFileFilter() {
+    if (document.getElementById("filtered").checked) {
+        // Show/enable form elements
+        document.getElementById("file_name_filters").removeAttribute("disabled")
+        document.getElementById("filter_result").style.display = "block"
+
+        // Collect the validation steps to which the glob applies
+        selected_steps = []
+        document.querySelectorAll("fieldset[name='steps'] > input:checked").forEach(item => selected_steps.push(item.name.replace("step_", "")))
+
+        // Query the server for the files that match both the steps and the file globbing 
+        let json = {"files": []}
+        if (document.getElementById("file_name_filters").value.trim() != "") {
+            let body = new FormData()
+            body.set("file_name_filters", document.getElementById("file_name_filters").value)
+            body.set("step_names", selected_steps)
+            let response = await fetch(window.location.href + "file_name_filters", {
+                method: 'POST',
+                body: body
+            })
+            json = await response.json()
+        }
+
+        // Display the file selection list
+        let ul = document.createElement("ul")
+        json["files"].forEach(file => {
+            let li = document.createElement("li")
+            li.textContent = file
+            ul.appendChild(li)
+        })
+        document.getElementById("filter_result").replaceChildren(ul)
+    } else {
+        document.getElementById("file_name_filters").setAttribute("disabled", "disabled")
+        document.getElementById("filter_result").style.display = "none"
+    }
+}
+document.getElementsByName('check_what').forEach(node => node.addEventListener('change', refreshFileFilter))
+document.getElementById("file_name_filters").addEventListener("input", refreshFileFilter)
+document.querySelectorAll("fieldset[name=steps] > input[type=checkbox]").forEach(node => node.addEventListener("change", refreshFileFilter))
+window.addEventListener("load", refreshFileFilter)
+
 function setActive(is_active) {
     let btn = document.getElementById('start_btn')
     btn.disabled = !is_active

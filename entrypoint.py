@@ -4,6 +4,7 @@ import aiohttp
 from aiohttp import web
 import argparse
 import asyncio
+import fnmatch
 import glob
 import mimetypes
 import os
@@ -115,13 +116,22 @@ class FileCollection(dict):
             self.main_branch = "origin/main"
 
         self.changed_only = changed_only
+        self.file_name_globs = ["*"]
 
         if on_github:
             subprocess.run(["git", "config", "--global", "--add", "safe.directory", os.getcwd()])
 
     def setChangedOnly(self, changed_only):
         self.changed_only = changed_only
-        
+        self.file_name_globs = ["*"]
+    
+    def setFileNameFilters(self, file_name_filters):
+        self.changed_only = False
+        self.file_name_globs = [f"*{filter.strip()}*" for filter in file_name_filters]
+
+    def asPosix(self, key):
+        return [p.as_posix() for p in self[key]]
+
     def resolve(self):
         # Reset all file lists
         for pattern_name in self.keys():
@@ -145,17 +155,16 @@ class FileCollection(dict):
             if type(patterns) == str:
                 patterns = [patterns]
             
-            # Now add all files that match the pattern and that have not been seen before
+            # Now add all files that match the pattern and that have not been seen before, optionally filtered by the
+            # file name globs
             for pattern in patterns:
-                for file_name in glob.glob(pattern, recursive = True):
-                    if self.changed_only:
-                        if file_name in changed_files:
-                            self[pattern_name].append(file_name)
-                            changed_files.remove(file_name)                   
-                    else:
-                        if file_name not in combined:
-                            self[pattern_name].append(file_name)
-                            combined.append(file_name)
+                for file_path in pathlib.Path().glob(pattern):
+                    if self.changed_only and file_path in changed_files:
+                        self[pattern_name].append(file_path)
+                        changed_files.remove(file_path)
+                    elif (file_path not in combined) and any([fnmatch.fnmatch(file_path.name, fn_glob) for fn_glob in self.file_name_globs]):
+                        self[pattern_name].append(file_path)
+                        combined.append(file_path)
 
 class StepExecutor:
     def __init__(self, config, file_collection, printer, fail_at, verbosity_level):
@@ -236,7 +245,7 @@ class StepExecutor:
                 if type(patterns) == str:
                     patterns = [patterns]
                 for pattern in patterns:
-                    files += self.file_collection[pattern]
+                    files += self.file_collection.asPosix(pattern)
         
             if len(files) == 0:
                 await self.printer.writeLine("\033[1;37mNothing to check, skipping\033[0m")
@@ -366,10 +375,11 @@ class QAServer:
         self.executor = executor
 
         self.app = web.Application()
-        self.app.router.add_get("/ws",     self._handleWebsocket)
-        self.app.router.add_get("/",       self._handleGet)
-        self.app.router.add_get("/{file}", self._handleGet)
-        self.app.router.add_post("/",      self._handlePost)
+        self.app.router.add_get("/ws",                 self._handleWebsocket)
+        self.app.router.add_get("/",                   self._handleGet)
+        self.app.router.add_post("/file_name_filters", self._handleFileNameFilters)
+        self.app.router.add_get("/{file}",             self._handleGet)
+        self.app.router.add_post("/",                  self._handlePost)
 
         self.ws = web.WebSocketResponse()
     
@@ -414,7 +424,10 @@ class QAServer:
         content = await request.post()
 
         if "check_what" in content:
-            self.executor.file_collection.setChangedOnly(content["check_what"] == "changed")
+            if content["check_what"] == "filtered":
+                self.executor.file_collection.setFileNameFilters(content["file_name_filters"].split(","))
+            else:
+                self.executor.file_collection.setChangedOnly(content["check_what"] == "changed")           
 
         steps = []
         for key in content:
@@ -442,6 +455,33 @@ class QAServer:
         asyncio.create_task(self._executeAndReport(steps))
         return web.Response()
 
+    async def _handleFileNameFilters(self, request):
+        """ Set file name filters for the file selection. The request is expected to have two fields:
+            * step_names: the current selection of steps to execute
+            * file_name_filters: a comma-separated list of file name filters
+        """
+
+        content = await request.post()
+
+        if content["step_names"] == "":
+            return web.json_response({"files": []})
+        step_names = content["step_names"].split(",")
+
+        self.executor.file_collection.setFileNameFilters(content["file_name_filters"].split(","))
+        self.executor.file_collection.resolve()
+        files = []
+        for step_name in step_names:
+            step = self.executor.steps[step_name]
+                       
+            if "patterns" in step:
+                patterns = step["patterns"]
+                if type(patterns) == str:
+                    patterns = [patterns]
+                for pattern in patterns:
+                    files += self.executor.file_collection.asPosix(pattern)
+
+        return web.json_response({"files": files})
+        
     async def _executeAndReport(self, steps):
         """ Execute the QA tooling and report back the result when done using the open web socket. """
         await self.ws.send_json({"status": "running"})

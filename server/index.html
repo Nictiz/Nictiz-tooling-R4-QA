@@ -49,6 +49,11 @@
                 <br />
                 <input type="radio" name="check_what" id="changed" value="changed" checked="checked"/>
                 <label for="changed">Changed material only</label>
+                <br />
+                <input type="radio" name="check_what" id="filtered" value="filtered"/>
+                <label for="filtered">Files matching pattern(s): </label>
+                <input type="text" size="60" id="file_name_filters" name="file_name_filters" disabled="disabled"/><br />
+                <div id="filter_result" style="max-height: 200px; overflow-y: scroll; display: none;"></div>
             </fieldset>
             <fieldset style="display: flex;">
                 <fieldset style="flex: 1;">
