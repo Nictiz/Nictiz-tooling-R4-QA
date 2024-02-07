@@ -73,9 +73,10 @@ async function refreshFileFilter() {
         let json = {"files": []}
         if (document.getElementById("file_name_filters").value.trim() != "") {
             let body = new FormData()
-            body.set("file_name_filters", document.getElementById("file_name_filters").value)
+            body.set("mode", "filtered")
+            body.set("filters", document.getElementById("file_name_filters").value)
             body.set("step_names", selected_steps)
-            let response = await fetch(window.location.href + "file_name_filters", {
+            let response = await fetch(window.location.href + "file_selection", {
                 method: 'POST',
                 body: body
             })

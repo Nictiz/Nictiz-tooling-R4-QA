@@ -380,11 +380,11 @@ class QAServer:
         self.executor = executor
 
         self.app = web.Application()
-        self.app.router.add_get("/ws",                 self._handleWebsocket)
-        self.app.router.add_get("/",                   self._handleGet)
-        self.app.router.add_post("/file_name_filters", self._handleFileNameFilters)
-        self.app.router.add_get("/{file}",             self._handleGet)
-        self.app.router.add_post("/",                  self._handlePost)
+        self.app.router.add_get("/ws",              self._handleWebsocket)
+        self.app.router.add_get("/",                self._handleGet)
+        self.app.router.add_post("/file_selection", self._getFileSelection)
+        self.app.router.add_get("/{file}",          self._handleGet)
+        self.app.router.add_post("/",               self._handlePost)
 
         self.ws = web.WebSocketResponse()
     
@@ -462,10 +462,11 @@ class QAServer:
         asyncio.create_task(self._executeAndReport(steps))
         return web.Response()
 
-    async def _handleFileNameFilters(self, request):
+    async def _getFileSelection(self, request):
         """ Set file name filters for the file selection. The request is expected to have two fields:
+            * mode: either "all", "changed" or "filtered"
             * step_names: the current selection of steps to execute
-            * file_name_filters: a comma-separated list of file name filters
+            * filters: a comma-separated list of file name filters
         """
 
         content = await request.post()
@@ -474,8 +475,22 @@ class QAServer:
             return web.json_response({"files": []})
         step_names = content["step_names"].split(",")
 
-        self.executor.file_collection.setMode(FileCollection.Mode.FILTERED, content["file_name_filters"].split(","))
+        # Set the FileCollection
+        if content["mode"] == "changed":
+            mode = FileCollection.Mode.CHANGED
+        elif content["mode"] == "filtered":
+            mode = FileCollection.Mode.FILTERED
+        else:
+            mode = FileCollection.Mode.ALL
+
+        filters = None
+        if "filters" in content:
+            filters = content["filters"].split(",")
+        
+        self.executor.file_collection.setMode(mode, filters)
         self.executor.file_collection.resolve()
+
+        # Retrieve all files for the selected steps
         files = []
         for step_name in step_names:
             step = self.executor.steps[step_name]
