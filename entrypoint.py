@@ -244,7 +244,6 @@ class StepExecutor:
 
     async def execute(self, *step_names):
         os.environ["debug"] = "1" if self.debug else "0"
-        os.environ["changed_only"] = "1" if self.file_collection.mode == FileCollection.Mode.CHANGED else "0"
         os.environ["fail_at"] = self.fail_at
 
         self._copyScripts()

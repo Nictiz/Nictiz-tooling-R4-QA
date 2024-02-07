@@ -173,7 +173,6 @@ Scripts can reside anywhere in the repository and are interpreted as standard Li
   * `work_dir`: The repository directory, or rather, a one-time copy of the repository directory. The repository itself is read-only so there's no change of destroying any data. A fresh copy is made each time the tool _chain_ is run. 
   * `script_dir`: The dir that hosts the (copy of the) custom scripts during execution. See the remark below.
   * `debug`: flag to define if the tools are run in debug mode ("1" is true and "0" is false)
-  * `changed_only`: flag to determine if we need to check changed files only ("1" is true and "0" is false)
   * `write_github`: check to determine if we're writing output as part of a Github workflow ("1" is true and "0" is false)
   * `fail_at`: the issue level at which the check should be considered failed. The possible value are "fatal", "error" or "warning".
 * Shell scripts are sensitive to line endings (that is, they MUST be in Unix format for them to work) and file attributes, which do not always carry over to git repositories on Windows. For this reason, the scripts are copied and normalized to `script_dir` before being executed.
