@@ -19,4 +19,10 @@ RUN git clone -b master --depth 1 https://github.com/pieter-edelman-nictiz/hl7-f
 
 COPY entrypoint.py /entrypoint.py
 COPY server /server
+
+RUN mkdir builtin_scripts
+COPY --chmod=755 builtin_scripts/* /builtin_scripts
+RUN apk add dos2unix
+RUN dos2unix /builtin_scripts/*
+
 ENTRYPOINT ["python3", "/entrypoint.py"]

@@ -10,13 +10,9 @@ At its heart, this tool allows an author of FHIR conformance resources to quickl
 
 ### Resource validation
 
-Although the tool can easily be extended with all kinds of custom scripts and tooling specific for a project, the core of checking conformance to the profiling guidelines is formed by checking FHIR resources against a profile, using the HL7 FHIR Validator. When checking against the FHIR profiling guidelines, this means using the profiles defined by these guidelins for the various types conformance resources: profiles and extensions, terminology resources (ValueSets, CodeSystems, NamingSystems and ConceptMaps), infrastructural resources (SearchParameters and CapabilityStatements) and example resources.
+Although the tool can easily be extended with all kinds of custom scripts and tooling specific for a project, the core of checking conformance to the profiling guidelines is formed by checking FHIR resources against a profile, using the HL7 FHIR Validator. When checking against the FHIR profiling guidelines, this means using the profiles defined by these guidelines for the various types conformance resources: profiles and extensions, terminology resources (ValueSets, CodeSystems, NamingSystems and ConceptMaps), infrastructural resources (SearchParameters and CapabilityStatements) and example resources.
 
 Validating FHIR resources however is not always an exact science: there's a plethora of options available regarding terminology, dependency's and error levels, and often false positives abound, either because of flaws in the validator or termninology server, or because there's a good reason to deviate from the rules. This tool offers the knobs to tune this validation process.
-
-### Manual and automated usage
-
-An important feature of this tool is to allow the same checks to be used in a manual (for human inspection) and automated (e.g. on pull requests) fashion. For manual usage, a web based user interface is available which allows a user to set options and select the checks to perform. For automated checks, a batch mode is available where the checks and options can be defined using the parameters, and where the result is communicated using the exit status code. (Of course, the batch mode can be used for manual checks as well if you're that type of person. It is, however, out of scope for this README).
 
 ### Terminology checking
 
@@ -27,6 +23,14 @@ By default terminology checking it is opiniated about several of options:
 * And all languages are allowed for display values (the default for the Validator from version 6.1.1 onwards).
 * Display issues are reported as warnings, not as errors (the default behaviour of the Validator is to report them as errors).
 * When a code is encountered that falls outside an extensible bound ValueSet, no warning is emitted (the default behaviour of the Validator is to emit a warning). This can be overridden in the different usage scenarios.
+
+### Default sanity checks
+
+Apart from core FHIR checks, there is a default sanity check included called to check if `Resource.id` is present and aligns with the file name. This step is by default enabled for all patterns. If this is not desirable, the patterns may be overridden in the `qa.yaml` file by defining a step with the name "check resource ids".
+
+### Manual and automated usage
+
+An important feature of this tool is to allow the same checks to be used in a manual (for human inspection) and automated (e.g. on pull requests) fashion. For manual usage, a web based user interface is available which allows a user to set options and select the checks to perform. For automated checks, a batch mode is available where the checks and options can be defined using the parameters, and where the result is communicated using the exit status code. (Of course, the batch mode can be used for manual checks as well if you're that type of person. It is, however, out of scope for this README).
 
 ### Silencing issues
 

@@ -19,10 +19,11 @@ import sys
 import tempfile
 import yaml
 
-REPO_DIR    = "/repo"
-TOOLS_DIR   = "/tools"
-SCRIPT_DIR  = "/scripts"
-CONFIG_FILE = "qa.yaml"
+REPO_DIR           = "/repo"
+TOOLS_DIR          = "/tools"
+SCRIPT_DIR         = "/scripts"
+BUILTIN_SCRIPT_DIR = "/builtin_scripts"
+CONFIG_FILE        = "qa.yaml"
 
 class Printer:
     ''' Class to route and format output to the desired location '''
@@ -186,11 +187,27 @@ class FileCollection(dict):
                         combined.append(file_path)
 
 class StepExecutor:
+    BUILTIN_STEPS = {
+        "check resource ids": {
+            "description": "Check if the .id matches the name of the file",
+            "builtin-script": "check-id.py"
+        }
+    }
+
     def __init__(self, config, file_collection, printer, fail_at, verbosity_level):
         if "steps" in config:
             self.steps = config["steps"]
         else:
             self.steps = {}
+        
+        # Add builtin steps
+        for builtin_step_name in self.BUILTIN_STEPS.keys():
+            builtin_step = self.BUILTIN_STEPS[builtin_step_name]
+            if builtin_step_name in self.steps:
+                builtin_step.update(self.steps[builtin_step_name]) # Override with the settings from the config file
+            if "patterns" not in builtin_step: # Default to all patterns if not explicitly set
+                builtin_step["patterns"] = [pattern for pattern in file_collection.patterns]
+            self.steps[builtin_step_name] = builtin_step
 
         self.tx_disabled            = False
         self.fail_at                = fail_at
@@ -274,6 +291,8 @@ class StepExecutor:
                     success = await self._runValidator(step["profile"], files)
                 elif "script" in step:
                     success = await self._runExternalCommand(step["script"], files)
+                elif "builtin-script" in step:
+                    success = await self._runExternalCommand(step["builtin-script"], files, builtin = True)
                 else:
                     success = await self._runValidator(None, files)
                 overall_success &= success
@@ -362,11 +381,14 @@ class StepExecutor:
         os.unlink(out_file[1])
         return success 
   
-    async def _runExternalCommand(self, command, files):
-        if not self.script_dir:
-            await self.printer.writeLine("'script dir' is not set in qa.yaml!")
-            return False
-        result = await self._popen(SCRIPT_DIR + "/" + command + " " + " ".join(files), shell = True)
+    async def _runExternalCommand(self, command, files, builtin = False):
+        if builtin:
+            script_dir = BUILTIN_SCRIPT_DIR
+        else:
+            if not self.script_dir:
+                await self.printer.writeLine("'script dir' is not set in qa.yaml!")
+                return False
+        result = await self._popen(script_dir + "/" + command + " " + " ".join(files), shell = True)
         return result == 0
 
     async def _popen(self, command, shell = False, suppress_output = False):

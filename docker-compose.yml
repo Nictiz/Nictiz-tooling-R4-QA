@@ -1,4 +1,3 @@
-version: "3.9"
 services:
   nictiz-r4-qa:
     build: .
