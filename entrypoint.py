@@ -102,6 +102,7 @@ class Printer:
             return ""
         
         return f"</span><span style='color: {color}'>"
+
 class FileCollection(dict):
     """ Class to select the relevant files per step, as specified using the patterns in the qa.yaml file.
 
@@ -216,10 +217,7 @@ class StepExecutor:
         self.file_collection        = file_collection
         self.printer                = printer
 
-        # By default, we handle the Nictiz profiling guidelines package. Additional ig's may be defined in the config file.
-        self.igs = ["nictiz.fhir.nl.r4.profilingguidelines"]
-        if "igs" in config:
-            self.igs += [ig for ig in config["igs"]]
+        self.igs = [] if "igs" not in config else config["igs"]
 
         self.ignored_issues = None
         if "ignored issues" in config:
@@ -287,12 +285,13 @@ class StepExecutor:
                 self.printer.writeGithubOutput(f"step[{step_name}][skipped]", "true")
             else:
                 self.printer.writeGithubOutput(f"step[{step_name}][skipped]", "false")
+                               
                 if "profile" in step:
                     success = await self._runValidator(step["profile"], files)
-                elif "script" in step:
-                    success = await self._runExternalCommand(step["script"], files)
-                elif "builtin-script" in step:
-                    success = await self._runExternalCommand(step["builtin-script"], files, builtin = True)
+                elif "script" in step or "builtin-script" in step:
+                    success = await self._runExternalCommand(step["script"], files,
+                        builtin = "builtin-script" in step,
+                        snapshots = False if "snapshots" not in step else step["snapshots"])
                 else:
                     success = await self._runValidator(None, files)
                 overall_success &= success
@@ -339,7 +338,8 @@ class StepExecutor:
             tx_opt += ["-tx", "n/a"]
         best_practices_opt = ["-best-practice", "warning" if self.best_practice_warnings else "ignore"]
 
-        igs = []
+        # By default, we include the Nictiz profiling guidelines package.
+        igs = ["-ig", "nictiz.fhir.nl.r4.profilingguidelines"]
         for ig in self.igs:
             igs += ["-ig", ig]
 
@@ -381,15 +381,61 @@ class StepExecutor:
         os.unlink(out_file[1])
         return success 
   
-    async def _runExternalCommand(self, command, files, builtin = False):
+    async def _runExternalCommand(self, command, files, builtin = False, snapshots = False):
         if builtin:
             script_dir = BUILTIN_SCRIPT_DIR
         else:
             if not self.script_dir:
                 await self.printer.writeLine("'script dir' is not set in qa.yaml!")
                 return False
+            script_dir = self.script_dir
+                
+        if snapshots:
+            snapshot_path, files = await self._createSnapshots(files, snapshots)
+            if not snapshot_path:
+                return False
+
         result = await self._popen(script_dir + "/" + command + " " + " ".join(files), shell = True)
+
+        if snapshots:
+            shutil.rmtree(snapshot_path)
+
         return result == 0
+
+    async def _createSnapshots(self, files, kind):
+        if kind not in ["xml", "json"]:
+            await self.printer.writeLine("'snapshots' should either be 'xml' or 'json'!")
+            return False, False
+            
+        snapshot_path = tempfile.mkdtemp()
+        for file in files:
+            shutil.copy(file, snapshot_path)
+            await self.printer.writeLine(file)
+
+        igs = []
+        for ig in self.igs:
+            igs += ["-ig", ig]
+        command = [
+            "java", "-jar", "/tools/validator/validator.jar",
+            '-version', "4.0.1"] + igs + ["-recurse"] + [
+            "-snapshot", "-outputSuffix", f"snapshot.{kind}"] + [f.as_posix() for f in pathlib.Path(snapshot_path).glob("*")]
+        
+        self.printer.startGithubGroup("Creating snapshots using the Validator")
+        if self.debug or self.printer.write_github:
+            suppress_output = False
+        else:
+            suppress_output = True
+        await self._popen(command, suppress_output=suppress_output)
+        self.printer.endGithubGroup()
+
+        snapshotted = []
+        for f in pathlib.Path(snapshot_path).iterdir():
+            if f.name.endswith(f".snapshot.{kind}"):
+                snapshotted.append(f.absolute().as_posix())
+            else:
+                f.unlink()
+
+        return snapshot_path, snapshotted
 
     async def _popen(self, command, shell = False, suppress_output = False):
         ''' Helper method to open a subprocess, send the output to the Printer as it comes in, and return the results. '''
