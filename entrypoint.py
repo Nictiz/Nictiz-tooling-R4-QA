@@ -406,21 +406,26 @@ class StepExecutor:
         if kind not in ["xml", "json"]:
             await self.printer.writeLine("'snapshots' should either be 'xml' or 'json'!")
             return False, False
-            
-        snapshot_path = tempfile.mkdtemp()
-        for file in files:
-            shutil.copy(file, snapshot_path)
-            await self.printer.writeLine(file)
+        
+        self.printer.startGithubGroup("Creating snapshots using the Validator")
+        if not self.printer.write_github:
+            await self.printer.writeLine("Creating snapshots using the Validator")
 
+        # The Validator creates snapshot files in the same directory as the source file, so first we copy over all
+        # relevant files to a temporary directory
+        snapshots_path = pathlib.Path(tempfile.mkdtemp())
+        for file_name in files:
+            shutil.copy(file_name, snapshots_path)
+
+        # Run the Validator
         igs = []
         for ig in self.igs:
             igs += ["-ig", ig]
         command = [
             "java", "-jar", "/tools/validator/validator.jar",
             '-version', "4.0.1"] + igs + ["-recurse"] + [
-            "-snapshot", "-outputSuffix", f"snapshot.{kind}"] + [f.as_posix() for f in pathlib.Path(snapshot_path).glob("*")]
+            "-snapshot", "-outputSuffix", f"snapshot.{kind}"] + [f.as_posix() for f in snapshots_path.glob("*")]
         
-        self.printer.startGithubGroup("Creating snapshots using the Validator")
         if self.debug or self.printer.write_github:
             suppress_output = False
         else:
@@ -428,14 +433,19 @@ class StepExecutor:
         await self._popen(command, suppress_output=suppress_output)
         self.printer.endGithubGroup()
 
+        # Check if all snapshots have been generated and remove all source files from the temp dir
         snapshotted = []
-        for f in pathlib.Path(snapshot_path).iterdir():
-            if f.name.endswith(f".snapshot.{kind}"):
-                snapshotted.append(f.absolute().as_posix())
+        for file_name in files:
+            name = pathlib.Path(file_name).name
+            snapshot = snapshots_path/f"{name}.snapshot.{kind}"
+            if snapshot.exists():
+                snapshots_path.joinpath(name).unlink()
+                snapshotted.append(snapshot.absolute().as_posix())
             else:
-                f.unlink()
+                await self.printer.writeLine("Validator couldn't produce snapshots for all profiles. This test cannot continue!")
+                return False, False
 
-        return snapshot_path, snapshotted
+        return snapshots_path, snapshotted
 
     async def _popen(self, command, shell = False, suppress_output = False):
         ''' Helper method to open a subprocess, send the output to the Printer as it comes in, and return the results. '''
