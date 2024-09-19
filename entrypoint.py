@@ -134,8 +134,10 @@ class FileCollection(dict):
 
         self.setMode(mode)
 
-        if on_github:
-            subprocess.run(["git", "config", "--global", "--add", "safe.directory", os.getcwd()])
+        # As a safety precaution, git refuses to work in directory's not owned by the current user, unless it's
+        # explicitly told that the repo can be trusted. Since we're running in a container, we assume that it's safe
+        # to do everything here.
+        subprocess.run(["git", "config", "--global", "--add", "safe.directory", os.getcwd()])
 
     def setMode(self, mode, file_name_filters = None):
         """ Set the file selection mode using the Mode enum.
