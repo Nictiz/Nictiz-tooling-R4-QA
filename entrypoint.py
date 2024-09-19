@@ -21,7 +21,7 @@ import yaml
 
 REPO_DIR           = "/repo"
 TOOLS_DIR          = "/tools"
-SCRIPT_DIR         = "/scripts"
+USER_SCRIPT_DIR    = "/user_scripts"
 BUILTIN_SCRIPT_DIR = "/builtin_scripts"
 CONFIG_FILE        = "qa.yaml"
 
@@ -102,6 +102,7 @@ class Printer:
             return ""
         
         return f"</span><span style='color: {color}'>"
+
 class FileCollection(dict):
     """ Class to select the relevant files per step, as specified using the patterns in the qa.yaml file.
 
@@ -227,14 +228,14 @@ class StepExecutor:
 
         self.debug = False
 
-        self.script_dir = None
+        self.script_src_dir = None
         if "script dir" in config:
-            self.script_dir = config["script dir"]
+            self.script_src_dir = config["script dir"]
 
         # Export the variables for external scripts to use
         os.environ["tools_dir"]  = TOOLS_DIR
         os.environ["work_dir"]   = REPO_DIR
-        os.environ["script_dir"] = SCRIPT_DIR
+        os.environ["script_dir"] = USER_SCRIPT_DIR
     
     def getSteps(self):
         return self.steps.keys()
@@ -310,14 +311,14 @@ class StepExecutor:
     def _copyScripts(self):
         """ Create a fresh copy of the scripts dir so that script files have their line endings normalized and have
             the proper permissions for executing. """
-        shutil.rmtree(SCRIPT_DIR)
-        os.mkdir(SCRIPT_DIR)
-        if (self.script_dir):
+        shutil.rmtree(USER_SCRIPT_DIR)
+        os.mkdir(USER_SCRIPT_DIR)
+        if (self.script_src_dir):
             curr_dir = os.getcwd()
-            os.chdir(os.path.join(REPO_DIR, self.script_dir))
+            os.chdir(os.path.join(REPO_DIR, self.script_src_dir))
             for file_name in glob.glob("*", recursive = False):
                 with open(file_name, "rt") as src_file:
-                    dst_path = os.path.join(SCRIPT_DIR, file_name)
+                    dst_path = os.path.join(USER_SCRIPT_DIR, file_name)
                     with open(dst_path, "wt") as dest_file:
                         for line in src_file.readlines():
                             dest_file.write(line)
@@ -385,9 +386,10 @@ class StepExecutor:
         if builtin:
             script_dir = BUILTIN_SCRIPT_DIR
         else:
-            if not self.script_dir:
+            if not self.script_src_dir:
                 await self.printer.writeLine("'script dir' is not set in qa.yaml!")
                 return False
+            script_dir = USER_SCRIPT_DIR
         result = await self._popen(script_dir + "/" + command + " " + " ".join(files), shell = True)
         return result == 0
 

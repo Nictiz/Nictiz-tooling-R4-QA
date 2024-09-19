@@ -9,7 +9,7 @@ RUN pip3 install jsonpath-python
 
 RUN mkdir /tools
 RUN mkdir /input
-RUN mkdir /scripts
+RUN mkdir /user_scripts
 
 RUN mkdir tools/validator
 RUN wget -nv https://github.com/hapifhir/org.hl7.fhir.core/releases/download/6.3.0/validator_cli.jar -O /tools/validator/validator.jar
