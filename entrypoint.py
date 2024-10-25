@@ -288,9 +288,13 @@ class StepExecutor:
                                
                 if "profile" in step:
                     success = await self._runValidator(step["profile"], files)
-                elif "script" in step or "builtin-script" in step:
+                elif "script" in step:
                     success = await self._runExternalCommand(step["script"], files,
-                        builtin = "builtin-script" in step,
+                        builtin = False,
+                        snapshots = False if "snapshots" not in step else step["snapshots"])
+                elif "builtin-script" in step:
+                    success = await self._runExternalCommand(step["builtin-script"], files,
+                        builtin = True,
                         snapshots = False if "snapshots" not in step else step["snapshots"])
                 else:
                     success = await self._runValidator(None, files)
