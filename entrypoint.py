@@ -225,9 +225,9 @@ class StepExecutor:
 
         self.debug = False
 
-        self.script_dir = None
+        self.script_src = None
         if "script dir" in config:
-            self.script_dir = config["script dir"]
+            self.script_src = config["script dir"]
 
         # Export the variables for external scripts to use
         os.environ["tools_dir"]  = TOOLS_DIR
@@ -315,9 +315,9 @@ class StepExecutor:
             the proper permissions for executing. """
         shutil.rmtree(SCRIPT_DIR)
         os.mkdir(SCRIPT_DIR)
-        if (self.script_dir):
+        if (self.script_src):
             curr_dir = os.getcwd()
-            os.chdir(os.path.join(REPO_DIR, self.script_dir))
+            os.chdir(os.path.join(REPO_DIR, self.script_src))
             for file_name in glob.glob("*", recursive = False):
                 with open(file_name, "rt") as src_file:
                     dst_path = os.path.join(SCRIPT_DIR, file_name)
@@ -389,10 +389,10 @@ class StepExecutor:
         if builtin:
             script_dir = BUILTIN_SCRIPT_DIR
         else:
-            if not self.script_dir:
+            if not self.script_src:
                 await self.printer.writeLine("'script dir' is not set in qa.yaml!")
                 return False
-            script_dir = self.script_dir
+            script_dir = SCRIPT_DIR
                 
         if snapshots:
             snapshot_path, files = await self._createSnapshots(files, snapshots)
