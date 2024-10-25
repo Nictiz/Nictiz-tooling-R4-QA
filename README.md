@@ -60,6 +60,7 @@ To use these tools from a repository, a file called `qa.yaml` needs to be placed
   * "description" (optional): A description of the check.
   * "profile" (optional): If present, this should be the canonical URL of a FHIR profile to check the files in the pattern against.
   * "script" (optional): The name of a custom script file in the "script dir" directory (see the section on extending below).
+  * "snapshots" (optional): This can be set to "xml" or "json" to convert the input to snapshots in the desired format as input for the script. Doesn't have an effect without the "script" key.
   If neither "profile" or "script" is present, the action will validate the files defined by the pattern against the known IG(s).
 
 In addition, the `qa.yaml` file recognizes the following keys:
@@ -95,6 +96,10 @@ steps:
       - other profiles
       - conceptmaps
     script: scripts/check-formatting.sh
+  check resource ids:
+    patterns:
+      - zib profiles
+      - other profiles
 ```
 
 ### Running locally
