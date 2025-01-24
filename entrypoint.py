@@ -349,10 +349,12 @@ class StepExecutor:
         for ig in self.igs:
             igs += ["-ig", ig]
 
-        if profile is not None:
-            profile_flag = ["-profile", profile]
-        else:
-            profile_flag = []
+        profile_flag = []
+        if isinstance(profile, str):
+            profile = [profile]
+        for p in profile:
+            profile_flag += ["-profile", p]
+
         command = [
             "java", "-jar", "/tools/validator/validator.jar",
             '-version', "4.0.1"] + igs + ["-recurse"] + profile_flag + tx_opt + best_practices_opt + [

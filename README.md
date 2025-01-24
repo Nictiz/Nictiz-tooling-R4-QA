@@ -58,7 +58,7 @@ To use these tools from a repository, a file called `qa.yaml` needs to be placed
 2. Then, using these patterns, the steps that may be performed as part of the tool chain need to be described. This is done using the "steps" section. Each entry in this section should be a unique name with the following keys:
   * "patterns": one or more of the defined patterns that will be used in the check.
   * "description" (optional): A description of the check.
-  * "profile" (optional): If present, this should be the canonical URL of a FHIR profile to check the files in the pattern against.
+  * "profile" (optional): If present, this should be one or more canonical URLs of FHIR profiles to check the files in the pattern against.
   * "script" (optional): The name of a custom script file in the "script dir" directory (see the section on extending below).
   * "snapshots" (optional): This can be set to "xml" or "json" to convert the input to snapshots in the desired format as input for the script. Doesn't have an effect without the "script" key.
   If neither "profile" or "script" is present, the action will validate the files defined by the pattern against the known IG(s).
@@ -89,7 +89,13 @@ steps:
   validate zib profiles:
     description: Validate the zib profiles using the HL7 Validator
     patterns: zib profiles
-    profile: http://nictiz.nl/fhir/StructureDefinition/ProfilingGuidelinesR4-StructureDefinitions-Zib-Profiles
+    profile:
+    - http://nictiz.nl/fhir/StructureDefinition/ProfilingGuidelinesR4-StructureDefinitions-Zib-Profiles
+    - http://nictiz.nl/fhir/StructureDefinition/zib2024-PackageChecks
+  validate zib extensions:
+    description: Validate the zib specific extensions using the profile for zib extensions
+    patterns: zib extensions
+    profile: http://nictiz.nl/fhir/StructureDefinition/ProfilingGuidelinesR4-StructureDefinitions-Zib-Extensions
   check formatting:
     patterns:
       - zib profiles
