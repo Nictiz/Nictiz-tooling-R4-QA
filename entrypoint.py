@@ -350,10 +350,11 @@ class StepExecutor:
             igs += ["-ig", ig]
 
         profile_flag = []
-        if isinstance(profile, str):
-            profile = [profile]
-        for p in profile:
-            profile_flag += ["-profile", p]
+        if profile != None:
+            if isinstance(profile, str):
+                profile = [profile]
+            for p in profile:
+                profile_flag += ["-profile", p]
 
         command = [
             "java", "-jar", "/tools/validator/validator.jar",
