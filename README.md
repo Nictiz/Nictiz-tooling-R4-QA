@@ -12,7 +12,7 @@ At its heart, this tool allows an author of FHIR conformance resources to quickl
 
 Although the tool can easily be extended with all kinds of custom scripts and tooling specific for a project, the core of checking conformance to the profiling guidelines is formed by checking FHIR resources against a profile, using the HL7 FHIR Validator. When checking against the FHIR profiling guidelines, this means using the profiles defined by these guidelines for the various types conformance resources: profiles and extensions, terminology resources (ValueSets, CodeSystems, NamingSystems and ConceptMaps), infrastructural resources (SearchParameters and CapabilityStatements) and example resources.
 
-Validating FHIR resources however is not always an exact science: there's a plethora of options available regarding terminology, dependency's and error levels, and often false positives abound, either because of flaws in the validator or termninology server, or because there's a good reason to deviate from the rules. This tool offers the knobs to tune this validation process.
+Validating FHIR resources however is not always an exact science: there's a plethora of options available regarding terminology, dependency's and error levels, and often false positives abound, either because of flaws in the validator or terminology server, or because there's a good reason to deviate from the rules. This tool offers the knobs to tune this validation process.
 
 ### Terminology checking
 
@@ -26,7 +26,7 @@ By default terminology checking it is opiniated about several of options:
 
 ### Default sanity checks
 
-Apart from core FHIR checks, there is a default sanity check included called to check if `Resource.id` is present and aligns with the file name. This step is by default enabled for all patterns. If this is not desirable, the patterns may be overridden in the `qa.yaml` file by defining a step with the name "check resource ids".
+Apart from core FHIR checks, there is a default sanity check included to check if `Resource.id` is present and aligns with the file name. This step is by default enabled for all patterns. If this is not desirable, the patterns may be overridden in the `qa.yaml` file by defining a step with the name "check resource ids".
 
 ### Manual and automated usage
 
@@ -36,7 +36,7 @@ An important feature of this tool is to allow the same checks to be used in a ma
 
 False positives are an inevitable part of automated checks. This tool offers the option to suppress, in a very fine-grained manner, the errors and warnings that occur during the validation (both for the purpose of human inspection and automated checks).
 
-These suppressed issue are described in a YAML file, which should be (reasonably) human-readable. The format is described here: This is described in [https://github.com/pieter-edelman-nictiz/hl7-fhir-validator-action#suppressing-messages]
+These suppressed issues are described in a YAML file, which should be (reasonably) human-readable. The format is described here: [https://github.com/pieter-edelman-nictiz/hl7-fhir-validator-action#suppressing-messages]
 
 #### Extra options
 
@@ -110,7 +110,7 @@ steps:
 
 ### Running locally
 
-To run the docker image, a file called `docker-compose.yml` needs to be defined somewhere in the repository (it doesn't matter where). When there's no need to extend the tooling, it should looks like this (please note the `[version]` should be populated with the version of this tool):
+To run the docker image, a file called `docker-compose.yml` needs to be defined somewhere in the repository (it doesn't matter where). When there's no need to extend the tooling, it should look like this (please note the `[version]` should be populated with the version of this tool):
 
 ```yaml
 version: "3.9"
