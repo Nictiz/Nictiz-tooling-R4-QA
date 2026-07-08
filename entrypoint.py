@@ -72,8 +72,8 @@ class Printer:
 
         if self.socket != None and not self.socket.closed:
             # Set the message to "terminal colors" (lightgrey on black). Rewrite all ANSI color codes to HTML tags.
-            html_msg = re.sub('\x1b\[(0|1);3(.)m', self._ansiToHTML, message)
-            html_msg = re.sub('\x1b\[0m', "</span><span style='color: lightgrey'>", html_msg)
+            html_msg = re.sub('\x1b\\[(0|1);3(.)m', self._ansiToHTML, message)
+            html_msg = re.sub('\x1b\\[0m', "</span><span style='color: lightgrey'>", html_msg)
             html_msg = f"<span style='color: lightgrey;'>{html_msg}</span>"
 
             await self.socket.send_json({
@@ -653,7 +653,7 @@ if __name__ == "__main__":
         args.batch = True
 
     try:
-        MENU_PORT = os.environ["MENU_PORT"]
+        MENU_PORT = int(os.environ["MENU_PORT"])
     except KeyError:
         MENU_PORT = 9000
 
