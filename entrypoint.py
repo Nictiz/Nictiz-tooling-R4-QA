@@ -431,9 +431,9 @@ class StepExecutor:
         for ig in self.igs:
             igs += ["-ig", ig]
         command = [
-            "java", "-jar", "/tools/validator/validator.jar",
+            "java", "-jar", "/tools/validator/validator.jar", "snapshot",
             '-version', "4.0.1"] + igs + ["-recurse"] + [
-            "-snapshot", "-outputSuffix", f"snapshot.{kind}"] + [f.as_posix() for f in snapshots_path.glob("*")]
+            "-outputSuffix", f"snapshot.{kind}"] + [f.as_posix() for f in snapshots_path.glob("*")]
         
         if self.debug or self.printer.write_github:
             suppress_output = False
